@@ -37,3 +37,6 @@ next-env.d.ts
 .claude_ui_data/
 
 .env_metadata/
+
+# reference directory
+referrence/
