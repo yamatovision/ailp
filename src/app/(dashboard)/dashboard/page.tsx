@@ -1,6 +1,5 @@
 'use client';
 
-import { Metadata } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,11 +8,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createLP } from '@/lib/api/lp';
 import { useToast } from '@/components/ui/use-toast';
-
-export const metadata: Metadata = {
-  title: 'ダッシュボード - 多変量テストLP作成システム',
-  description: 'LPの管理、テスト結果の確認、会員管理などができます。',
-};
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -40,6 +34,9 @@ export default function DashboardPage() {
 
       // 直接生成フェーズに移行
       router.push(`/lp/${newLP.id}/edit/generate`);
+      
+      // デバッグ用
+      console.log(`Creating LP with ID: ${newLP.id}, redirecting to /lp/${newLP.id}/edit/generate`);
     } catch (error) {
       console.error('LP作成エラー:', error);
       toast({
