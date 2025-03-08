@@ -58,18 +58,84 @@ export default function ChatInterface({ initialMessages = [], onComplete }: Chat
     try {
       // API Helperを使用してメッセージを送信
       const messageToSend = inputValue;
-      const response = await sendChatMessage(messageToSend, messages);
       
-      // AIからの応答をメッセージに追加
+      // ストリーミング処理に変更
+      // 空のシステムメッセージを作成
+      const systemMessageId = Date.now();
       const systemMessage: Message = {
-        id: Date.now(),
+        id: systemMessageId,
         role: 'system',
-        content: response,
+        content: '',
       };
       
+      // 空のメッセージを先に追加
       setMessages((prev) => [...prev, systemMessage]);
-      setIsTyping(false);
       
+      // ストリーミングAPIを使用
+      console.log('ストリーミングAPIをダイナミックインポート...');
+      import('@/lib/api/chat').then(({ streamChatMessage }) => {
+        console.log('ストリーミングチャットメッセージ送信開始...');
+        let receivedChunks = 0;
+        
+        streamChatMessage(
+          messageToSend,
+          messages,
+          // チャンクごとにメッセージを更新
+          (chunk) => {
+            receivedChunks++;
+            if (receivedChunks <= 3 || receivedChunks % 50 === 0) {
+              console.log(`ストリーミングチャンク #${receivedChunks} 受信:`, chunk.length < 20 ? chunk : chunk.substring(0, 20) + '...');
+            }
+            
+            setMessages(prev => {
+              // 最後のメッセージが現在のシステムメッセージかどうかをチェック
+              const lastMessage = prev[prev.length - 1];
+              if (lastMessage.id === systemMessageId) {
+                // 現在のシステムメッセージを更新
+                return [
+                  ...prev.slice(0, prev.length - 1),
+                  { ...lastMessage, content: lastMessage.content + chunk }
+                ];
+              }
+              return prev;
+            });
+          },
+          // 完了時の処理
+          () => {
+            console.log(`ストリーミング完了: 合計 ${receivedChunks} チャンク受信`);
+            setIsTyping(false);
+          }
+        ).catch(error => {
+          console.error('Streaming chat API error:', error);
+          setIsTyping(false);
+          
+          // エラーメッセージをシステムメッセージとして表示
+          setMessages(prev => {
+            // 最後のメッセージが途中のシステムメッセージかどうかをチェック
+            const lastMessage = prev[prev.length - 1];
+            if (lastMessage.id === systemMessageId) {
+              // エラーが発生した場合は、途中のメッセージを削除して新しいエラーメッセージを追加
+              return [
+                ...prev.slice(0, prev.length - 1),
+                {
+                  id: Date.now(),
+                  role: 'system',
+                  content: 'すみません、エラーが発生しました。もう一度お試しください。'
+                }
+              ];
+            }
+            // 最後のメッセージが途中のシステムメッセージでない場合は、新しいエラーメッセージを追加
+            return [
+              ...prev,
+              {
+                id: Date.now(),
+                role: 'system',
+                content: 'すみません、エラーが発生しました。もう一度お試しください。'
+              }
+            ];
+          });
+        });
+      });
     } catch (error) {
       console.error('Chat API error:', error);
       setIsTyping(false);

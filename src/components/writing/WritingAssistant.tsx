@@ -149,24 +149,128 @@ export default function WritingAssistant() {
         messageToSend += `\n\n添付ファイル情報:\n${fileInfo}`;
       }
       
-      // APIを使ってメッセージを送信
-      const response = await sendChatMessage(messageToSend, messages);
+      // システムメッセージ用のIDを生成
+      const systemMessageId = Date.now();
       
-      // AIからの応答をメッセージに追加
+      // 空のシステムメッセージを先に追加（タイピングインジケーターなしで）
       const systemMessage: Message = {
-        id: Date.now(),
+        id: systemMessageId,
         role: 'system',
-        content: response,
+        content: '', // 空の内容から始めて、ストリーミングで埋めていきます
       };
       
-      setMessages(prev => [...prev, systemMessage]);
+      // isTypingをfalseに設定 - タイピングインジケーターを表示しない
       setIsTyping(false);
+      setMessages(prev => [...prev, systemMessage]);
       
-      // レスポンスをエクスポート用に保存
-      if (response.trim()) {
-        setExportContent(response);
+      // ストリーミングAPIをインポートして使用
+      console.log('%c🔌 ストリーミングセッション開始%c メッセージ長: ' + messageToSend.length + '文字', 
+        'background:#6610f2; color:white; font-weight:bold; padding:2px 5px; border-radius:3px;', 
+        'color:#6610f2; font-weight:bold;');
+      
+      try {
+        const { streamChatMessage } = await import('@/lib/api/chat');
+        console.log('ストリーミングチャットメッセージ送信開始...');
+        let accumulatedResponse = '';
+        let receivedChunks = 0;
+        
+        await streamChatMessage(
+          messageToSend,
+          messages,
+          // チャンクごとにメッセージを更新
+          (chunk) => {
+            receivedChunks++;
+            
+            // 各チャンクを明確にコンソールに出力
+            const cleanChunk = chunk.replace(/\n/g, '\\n');
+            if (receivedChunks <= 5 || receivedChunks % 20 === 0) {
+              // 装飾を追加してログを目立たせる
+              console.log(`%c🤖 AI応答 #${receivedChunks}:%c "${cleanChunk.substring(0, 100)}${cleanChunk.length > 100 ? '...' : ''}"`, 
+                'background:#4a5dc7; color:white; font-weight:bold; padding:2px 5px; border-radius:3px;', 
+                'color:#4a5dc7; font-weight:bold;');
+            }
+            
+            accumulatedResponse += chunk;
+            
+            // チャンクの長さに応じてログレベルを分ける（重要な内容をハイライト）
+            if (chunk.length > 50) {
+              console.log(`📝 重要なチャンク (${chunk.length}文字): "${cleanChunk.substring(0, 50)}..."`);
+            }
+            
+            setMessages(prev => {
+              // 最後のメッセージが現在のシステムメッセージかどうかをチェック
+              const lastMessage = prev[prev.length - 1];
+              if (lastMessage.id === systemMessageId) {
+                // 現在のシステムメッセージを更新
+                return [
+                  ...prev.slice(0, prev.length - 1),
+                  { ...lastMessage, content: lastMessage.content + chunk }
+                ];
+              }
+              return prev;
+            });
+          },
+          // 完了時の処理
+          () => {
+            console.log(`%c🎉 ストリーミング完了:%c 合計 ${receivedChunks} チャンク受信`, 
+              'background:#28a745; color:white; font-weight:bold; padding:2px 5px; border-radius:3px;', 
+              'color:#28a745; font-weight:bold;');
+            
+            // 完成した応答の最初と最後の部分をログ表示
+            if (accumulatedResponse) {
+              const firstPart = accumulatedResponse.substring(0, 100).replace(/\n/g, '\\n');
+              const lastPart = accumulatedResponse.length > 150 
+                ? accumulatedResponse.substring(accumulatedResponse.length - 100).replace(/\n/g, '\\n')
+                : '';
+                
+              console.log(`%c📄 完成した応答:%c\n始め: "${firstPart}${accumulatedResponse.length > 100 ? '...' : ''}"\n${
+                lastPart ? `終わり: "...${lastPart}"` : ''
+              }\n計 ${accumulatedResponse.length} 文字`, 
+                'background:#17a2b8; color:white; font-weight:bold; padding:2px 5px; border-radius:3px;', 
+                'color:#17a2b8;');
+            }
+            
+            setIsTyping(false);
+            
+            // 完成したレスポンスをエクスポート用に保存
+            if (accumulatedResponse.trim()) {
+              setExportContent(accumulatedResponse);
+            }
+          }
+        );
+      } catch (streamError) {
+        console.error('Streaming API error:', streamError);
+        
+        // ストリーミングAPIが失敗した場合、通常のAPIを使用してフォールバック
+        console.log('通常のAPIにフォールバック...');
+        const response = await sendChatMessage(messageToSend, messages);
+        
+        // メッセージを更新
+        setMessages(prev => {
+          const lastMessage = prev[prev.length - 1];
+          if (lastMessage.id === systemMessageId) {
+            return [
+              ...prev.slice(0, prev.length - 1),
+              { ...lastMessage, content: response }
+            ];
+          }
+          return [
+            ...prev,
+            {
+              id: Date.now(),
+              role: 'system',
+              content: response,
+            }
+          ];
+        });
+        
+        setIsTyping(false);
+        
+        // レスポンスをエクスポート用に保存
+        if (response.trim()) {
+          setExportContent(response);
+        }
       }
-      
     } catch (error) {
       console.error('Chat API error:', error);
       setIsTyping(false);
@@ -178,14 +282,7 @@ export default function WritingAssistant() {
         content: `エラーが発生しました: ${error instanceof Error ? error.message : '不明なエラー'}\n\n環境変数が正しく設定されているか確認してください。`,
       };
       
-      // エラーメッセージで内容を置き換える
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.id === aiMessageId 
-            ? errorMessage 
-            : msg
-        )
-      );
+      setMessages(prev => [...prev, errorMessage]);
       
       toast({
         title: "API通信エラー",
@@ -383,13 +480,7 @@ export default function WritingAssistant() {
               </div>
             ))}
             
-            {isTyping && (
-              <div className="flex justify-start">
-                <Card className="px-4 py-3 max-w-[80%] shadow-sm bg-white border border-gray-200">
-                  <TypingIndicator />
-                </Card>
-              </div>
-            )}
+            {/* ストリーミング中はタイピングインジケーターを表示しない - 既に応答が表示されているため */}
             
             <div ref={messagesEndRef} />
           </div>
