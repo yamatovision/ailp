@@ -1,0 +1,161 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ユーザーモデル
+model User {
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  password      String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  lpProjects    LpProject[]
+  testSettings  TestSetting[]
+}
+
+// LPプロジェクトモデル
+model LpProject {
+  id            String         @id @default(cuid())
+  userId        String
+  title         String
+  description   String?
+  status        String         @default("draft") // draft, active, testing, ended
+  thumbnail     String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  components    LpComponent[]
+  testSettings  TestSetting[]
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// LPコンポーネントモデル
+model LpComponent {
+  id            String         @id @default(cuid())
+  projectId     String
+  componentType String         // hero, benefits, cta, testimonials, pricing, features, faq等
+  position      Int
+  aiPrompt      String?
+  aiParameters  Json?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  project       LpProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  variants      ComponentVariant[]
+  testResults   TestResult[]
+}
+
+// コンポーネントバリアントモデル
+model ComponentVariant {
+  id            String         @id @default(cuid())
+  componentId   String
+  variantType   String         // 'a' or 'b'
+  htmlContent   String?
+  cssContent    String?
+  jsContent     String?
+  reactComponent String?
+  metadata      Json?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  component     LpComponent    @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  sessionEvents SessionEvent[]
+}
+
+// テスト設定モデル
+model TestSetting {
+  id               String         @id @default(cuid())
+  projectId        String
+  userId           String
+  name             String
+  startDate        DateTime?
+  endDate          DateTime?
+  conversionGoal   String         // 'form_submit', 'button_click' etc.
+  testedComponents Json           // Array of component IDs
+  status           String         @default("scheduled") // scheduled, running, completed, stopped
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  project          LpProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  testSessions     TestSession[]
+  testResults      TestResult[]
+}
+
+// テストセッションモデル
+model TestSession {
+  id               String         @id @default(cuid())
+  testId           String
+  browserSessionId String         @unique
+  deviceType       String         // desktop, tablet, mobile
+  startTime        DateTime       @default(now())
+  assignedVariants Json           // {'hero': 'a', 'cta': 'b'}
+  testSetting      TestSetting    @relation(fields: [testId], references: [id], onDelete: Cascade)
+  sessionEvents    SessionEvent[]
+}
+
+// セッションイベントモデル
+model SessionEvent {
+  id            String            @id @default(cuid())
+  sessionId     String
+  eventType     String            // view, click, conversion
+  componentId   String?
+  variantId     String?
+  timestamp     DateTime          @default(now())
+  timeSpent     Int?              // milliseconds
+  testSession   TestSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  variant       ComponentVariant? @relation(fields: [variantId], references: [id])
+}
+
+// テスト結果モデル
+model TestResult {
+  id               String         @id @default(cuid())
+  testId           String
+  componentId      String
+  timestamp        DateTime       @default(now())
+  variantAData     Json           // Visitor count, conversion count etc.
+  variantBData     Json           // Visitor count, conversion count etc.
+  improvement      Float?         // Improvement percentage
+  confidence       Float?         // Statistical confidence
+  isSignificant    Boolean        @default(false)
+  winningVariant   String?        // 'a', 'b' or null
+  keyInsights      Json?          // Array of insights
+  deviceData       Json?          // Device specific analysis
+  winningFactors   String?        // Winning factors explanation
+  appliedToProduction Boolean     @default(false)
+  appliedAt        DateTime?
+  testSetting      TestSetting    @relation(fields: [testId], references: [id], onDelete: Cascade)
+  component        LpComponent    @relation(fields: [componentId], references: [id], onDelete: Cascade)
+}
+
+// テスト履歴モデル
+model TestHistory {
+  id             String           @id @default(cuid())
+  componentId    String
+  testDate       DateTime         @default(now())
+  variantA       Json             // Variant A data
+  variantB       Json             // Variant B data
+  primaryMetric  String           // 'conversionRate' etc.
+  secondaryMetric String?
+  winner         String?          // 'a' or 'b'
+  winningFactor  String?
+}
+
+// パターン分析モデル
+model PatternAnalysis {
+  id               String         @id @default(cuid())
+  patternName      String
+  patternExamples  Json?          // Array of examples
+  winCount         Int            @default(0)
+  lossCount        Int            @default(0)
+  averageLift      Float?
+  componentTypes   Json           // Array of component types
+  confidenceScore  Float?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+}
