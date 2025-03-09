@@ -16,7 +16,7 @@ async function createRealUser() {
   console.log('実際のユーザー登録を開始します...');
   
   const email = 'shiraishi.tatsuya@mikoto.co.jp';
-  const password = 'password123';
+  const password = 'Mikoto@123'; // 実際に試していたパスワードに修正
   
   // まず既存のユーザーを確認
   try {

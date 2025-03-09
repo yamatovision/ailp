@@ -15,8 +15,8 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { signUp } from '@/lib/supabase';
 import { toast } from '@/components/ui/use-toast';
+import { useAuth } from '@/auth/hooks/use-auth';
 
 const formSchema = z.object({
   name: z.string().min(2, 'お名前は2文字以上である必要があります'),
@@ -32,7 +32,8 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function RegisterForm() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { register, isLoading } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -45,16 +46,16 @@ export function RegisterForm() {
   });
 
   async function onSubmit(values: FormValues) {
-    setIsLoading(true);
+    setIsSubmitting(true);
 
     try {
-      const { data, error } = await signUp(values.email, values.password, values.name);
+      const result = await register(values.email, values.password, values.name);
 
-      if (error) {
+      if (!result.success) {
         toast({
           variant: 'destructive',
           title: '登録エラー',
-          description: error.message,
+          description: result.error || '会員登録に失敗しました',
         });
         return;
       }
@@ -64,6 +65,7 @@ export function RegisterForm() {
         description: 'メールを確認して登録を完了してください',
       });
 
+      // ログインページにリダイレクト
       router.push('/login');
     } catch (error) {
       toast({
@@ -72,7 +74,7 @@ export function RegisterForm() {
         description: '予期せぬエラーが発生しました',
       });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   }
 
@@ -89,7 +91,7 @@ export function RegisterForm() {
                 <Input 
                   placeholder="山田 太郎" 
                   autoComplete="name"
-                  disabled={isLoading} 
+                  disabled={isSubmitting || isLoading} 
                   {...field} 
                 />
               </FormControl>
@@ -108,7 +110,7 @@ export function RegisterForm() {
                   placeholder="your@email.com" 
                   type="email" 
                   autoComplete="email"
-                  disabled={isLoading} 
+                  disabled={isSubmitting || isLoading} 
                   {...field} 
                 />
               </FormControl>
@@ -127,7 +129,7 @@ export function RegisterForm() {
                   placeholder="••••••••" 
                   type="password" 
                   autoComplete="new-password"
-                  disabled={isLoading} 
+                  disabled={isSubmitting || isLoading} 
                   {...field} 
                 />
               </FormControl>
@@ -146,7 +148,7 @@ export function RegisterForm() {
                   placeholder="••••••••" 
                   type="password" 
                   autoComplete="new-password"
-                  disabled={isLoading} 
+                  disabled={isSubmitting || isLoading} 
                   {...field} 
                 />
               </FormControl>
@@ -154,8 +156,8 @@ export function RegisterForm() {
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? '登録中...' : 'アカウント登録'}
+        <Button type="submit" className="w-full" disabled={isSubmitting || isLoading}>
+          {isSubmitting || isLoading ? '登録中...' : 'アカウント登録'}
         </Button>
       </form>
     </Form>

@@ -3,7 +3,7 @@
 import { ThemeProvider } from 'next-themes';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { Toaster } from '@/components/ui/toaster';
-import { AuthProvider } from '@/lib/auth/auth-context';
+import { AuthProvider } from '@/auth/providers/auth-provider';
 
 // Create a client
 const queryClient = new QueryClient();

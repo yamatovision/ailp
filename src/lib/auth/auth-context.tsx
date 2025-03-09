@@ -3,12 +3,12 @@
 import { 
   createContext, 
   useContext, 
-  useState, 
   useEffect, 
-  ReactNode 
+  ReactNode,
+  useState 
 } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { supabase, getSession, getUser, signOut } from '@/lib/supabase';
+import { useAuthStore } from './auth-store';
+import { useRouter } from 'next/navigation';
 import { User } from '@supabase/supabase-js';
 
 interface AuthContextType {
@@ -26,81 +26,43 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // storeから状態を取得
+  const {
+    user,
+    isLoading,
+    isAuthenticated,
+    initialize,
+    logout: storeLogout
+  } = useAuthStore();
+  
+  // storeの初期化フラグ
+  const [isInitialized, setIsInitialized] = useState(false);
   const router = useRouter();
-  const pathname = usePathname();
 
+  // コンポーネントマウント時にstoreを初期化
   useEffect(() => {
-    async function loadUserFromSession() {
-      setIsLoading(true);
-      
-      // モックセッションのチェック
-      const mockSessionData = sessionStorage.getItem('supabase.auth.token');
-      if (mockSessionData) {
-        try {
-          const mockSession = JSON.parse(mockSessionData);
-          if (mockSession?.currentSession?.user) {
-            console.log('テストユーザーセッションを使用しています');
-            setUser(mockSession.currentSession.user);
-            setIsLoading(false);
-            return;
-          }
-        } catch (e) {
-          console.error('モックセッションの解析エラー:', e);
-        }
-      }
-      
-      // 通常のセッション取得
-      const { data, error } = await getSession();
-      
-      if (error) {
-        console.error('Session error:', error.message);
-        setIsLoading(false);
-        return;
-      }
-
-      if (data.session) {
-        const { data: userData } = await getUser();
-        if (userData.user) {
-          setUser(userData.user);
-        }
-      }
-      
-      setIsLoading(false);
+    if (!isInitialized) {
+      initialize().then(() => {
+        setIsInitialized(true);
+        console.log('認証ストア初期化完了');
+      });
     }
+  }, [initialize, isInitialized]);
 
-    loadUserFromSession();
-
-    // リアルタイムの認証状態変更を監視
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        setUser(session.user);
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-        if (!pathname.startsWith('/(auth)') && pathname !== '/') {
-          router.push('/login');
-        }
-      }
-    });
-
-    return () => {
-      authListener?.subscription.unsubscribe();
-    };
-  }, [router, pathname]);
-
+  // ログアウト関数
   async function logout() {
-    await signOut();
-    setUser(null);
-    router.push('/login');
+    const result = await storeLogout();
+    if (result.success) {
+      router.push('/login');
+    }
   }
 
   return (
     <AuthContext.Provider value={{ 
       user, 
       isLoading, 
-      isAuthenticated: !!user, 
-      logout 
+      isAuthenticated, 
+      logout
     }}>
       {children}
     </AuthContext.Provider>

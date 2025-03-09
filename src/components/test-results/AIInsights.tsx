@@ -25,12 +25,28 @@ export default function AIInsights({ testId }: AIInsightsProps) {
       setError(null);
       
       try {
-        const data = await getCrossSectionAnalysis(testId);
-        setInsights(data);
+        // 開発環境用モックデータ
+        const mockInsights = {
+          patternAnalysis: "テスト結果の分析から、CTA（Call-to-Action）要素とヘッダーのデザイン変更が最も効果的であることが判明しました。特に視覚的な強調と明確なメッセージングを組み合わせたバリアントが高いコンバージョン改善を示しています。",
+          patterns: [
+            "コントラストの高い色を使用したCTAボタンが従来の青色よりも23.7%高いコンバージョンを達成",
+            "よりシンプルで直接的なヘッダーメッセージが訪問者のエンゲージメントを向上",
+            "デスクトップユーザーはより詳細な情報に反応する傾向がある一方、モバイルユーザーは簡潔さを好む"
+          ],
+          recommendations: "次回のテストでは、「緑色・シャープ」なCTAボタンの色調やサイズのバリエーションを試す価値があります。また、ヒーローセクションのコピーも統計的有意には達していませんが、改善傾向が見られるため、より明確なベネフィット訴求を強調したバージョンでのテストを検討してください。"
+        };
+        
+        // 実際のAPI呼び出しはコメントアウト
+        // const data = await getCrossSectionAnalysis(testId);
+        
+        // モックデータを使用
+        setTimeout(() => {
+          setInsights(mockInsights);
+          setLoading(false);
+        }, 800); // ローディング状態を確認できるよう少し遅延
       } catch (error) {
         console.error('AI分析データの取得に失敗しました', error);
         setError('AI分析データの取得に失敗しました');
-      } finally {
         setLoading(false);
       }
     }

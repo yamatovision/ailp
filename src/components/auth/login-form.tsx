@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,67 +15,44 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { signIn } from '@/lib/supabase';
 import { toast } from '@/components/ui/use-toast';
+import { useAuth } from '@/auth/hooks/use-auth';
 
 const formSchema = z.object({
-  email: z.string().email('メールアドレスの形式が正しくありません'),
-  password: z.string().min(8, 'パスワードは8文字以上である必要があります'),
-  rememberMe: z.boolean().optional(),
+  email: z.string()
+    .min(1, 'メールアドレスは必須です')
+    .email('メールアドレスの形式が正しくありません'),
+  password: z.string()
+    .min(8, 'パスワードは8文字以上である必要があります'),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
 export function LoginForm() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
+  const searchParams = useSearchParams();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { login, isLoading } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: '',
       password: '',
-      rememberMe: false,
     },
   });
 
   async function onSubmit(values: FormValues) {
-    setIsLoading(true);
-
-    // テストユーザー用のモックログイン
-    if (values.email === 'test123@mailinator.com' && values.password === 'password123') {
-      toast({
-        title: 'ログイン成功',
-        description: 'テストユーザーとしてログインしました',
-      });
-      
-      // テスト用モックログイン：セッションストレージを使用
-      sessionStorage.setItem('supabase.auth.token', JSON.stringify({
-        currentSession: {
-          access_token: 'mock-token',
-          user: {
-            id: 'test-user-id',
-            email: 'test123@mailinator.com',
-            user_metadata: { name: 'テストユーザー' }
-          }
-        }
-      }));
-      
-      // 強制的にページ遷移
-      window.location.href = '/dashboard';
-      
-      setIsLoading(false);
-      return;
-    }
+    setIsSubmitting(true);
 
     try {
-      const { data, error } = await signIn(values.email, values.password);
+      const result = await login(values.email, values.password);
 
-      if (error) {
+      if (!result.success) {
         toast({
           variant: 'destructive',
           title: 'ログインエラー',
-          description: error.message,
+          description: result.error || 'ログインに失敗しました',
         });
         return;
       }
@@ -85,8 +62,12 @@ export function LoginForm() {
         description: 'ダッシュボードにリダイレクトします',
       });
 
-      // window.location.hrefを使用して強制的にリダイレクト
-      window.location.href = '/dashboard';
+      // リダイレクト先の取得（ミドルウェアからのクエリパラメータ）
+      const redirectPath = searchParams.get('redirect') || '/dashboard';
+      
+      // window.location.hrefを使用して完全にリロード
+      // Next.jsのルーターではなく直接リダイレクト
+      window.location.href = redirectPath;
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -94,7 +75,7 @@ export function LoginForm() {
         description: '予期せぬエラーが発生しました',
       });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   }
 
@@ -112,7 +93,7 @@ export function LoginForm() {
                   placeholder="your@email.com" 
                   type="email" 
                   autoComplete="email"
-                  disabled={isLoading} 
+                  disabled={isSubmitting || isLoading} 
                   {...field} 
                 />
               </FormControl>
@@ -131,7 +112,7 @@ export function LoginForm() {
                   placeholder="••••••••" 
                   type="password" 
                   autoComplete="current-password"
-                  disabled={isLoading} 
+                  disabled={isSubmitting || isLoading} 
                   {...field} 
                 />
               </FormControl>
@@ -139,22 +120,8 @@ export function LoginForm() {
             </FormItem>
           )}
         />
-        <div className="flex items-center space-x-2">
-          <input
-            type="checkbox"
-            id="rememberMe"
-            {...form.register('rememberMe')}
-            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-          />
-          <label
-            htmlFor="rememberMe"
-            className="text-sm text-muted-foreground"
-          >
-            ログイン状態を保持する
-          </label>
-        </div>
-        <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? 'ログイン中...' : 'ログイン'}
+        <Button type="submit" className="w-full" disabled={isSubmitting || isLoading}>
+          {isSubmitting || isLoading ? 'ログイン中...' : 'ログイン'}
         </Button>
       </form>
     </Form>

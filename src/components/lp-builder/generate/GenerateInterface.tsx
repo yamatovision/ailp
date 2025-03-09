@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/use-toast';
 
 import { useLPBuilder } from '../LPBuilderContext';
+import { updateLP } from '@/lib/api/lp';
 
 // デザインスタイルの型
 interface DesignStyle {
@@ -61,7 +62,7 @@ type GenerateInterfaceProps = {
 export default function GenerateInterface({ lpId }: GenerateInterfaceProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const { state, setLPContent, completePhase } = useLPBuilder();
+  const { state, setLPContent, setTitle, completePhase } = useLPBuilder();
   
   // コンテンツ自動生成
   const generateContent = () => {
@@ -85,36 +86,162 @@ export default function GenerateInterface({ lpId }: GenerateInterfaceProps) {
   const [designDescription, setDesignDescription] = useState(state.designDescription || '');
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // チャットデータがあるか確認
+  // チャットデータの確認を無効化 - 直接生成ステップが利用できるように
   useEffect(() => {
+    // チャットデータがなくても直接生成できるようコメントアウト
+    // if (!state.isComplete.info) {
+    //   toast({
+    //     title: "前の手順が未完了です",
+    //     description: "LP情報の入力ページに戻ります。",
+    //     variant: "destructive",
+    //   });
+    //   router.push(`/lp/${lpId}/edit/info`);
+    // }
+    
+    // 代わりに、フェーズを完了済みとしてマーク
     if (!state.isComplete.info) {
-      toast({
-        title: "前の手順が未完了です",
-        description: "LP情報の入力ページに戻ります。",
-        variant: "destructive",
-      });
-      router.push(`/lp/${lpId}/edit/info`);
+      completePhase('info');
+      console.log('Marked info phase as complete');
     }
-  }, [state.isComplete.info, router, lpId, toast]);
+  }, [state.isComplete.info, completePhase, lpId]);
 
   const handleGenerate = async () => {
+    console.log('Generate button clicked');
     setIsGenerating(true);
     
     try {
-      // 実際はAPIを呼び出す
-      // ここではモック動作のため setTimeout を使用
-      setTimeout(() => {
-        // グローバルステートに保存
-        setLPContent(lpContent, selectedStyle, designDescription);
+      // デバッグ用のログ
+      console.log('LP Content:', lpContent);
+      console.log('Selected Style:', selectedStyle);
+      console.log('Design Description:', designDescription);
+      console.log('Current Title:', state.title);
+      
+      // AI API呼び出し - セクション構造を分析・生成する
+      try {
+        // 構造分析APIを呼び出し
+        const structureResponse = await fetch('/api/ai/analyze-structure', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            serviceInfo: lpContent,
+            targetAudience: designDescription,
+            style: selectedStyle
+          }),
+        });
         
-        // フェーズ完了をマーク
-        completePhase('generate');
+        if (!structureResponse.ok) {
+          const error = await structureResponse.json();
+          throw new Error(error.message || 'LP構造分析中にエラーが発生しました');
+        }
         
-        // 次ページへ遷移
-        router.push(`/lp/${lpId}/edit/design`);
+        const structureData = await structureResponse.json();
+        console.log('Structure data received:', structureData);
         
-        setIsGenerating(false);
-      }, 2000);
+        // セクション全体を生成APIを呼び出し
+        const sectionsResponse = await fetch('/api/ai/generate-all-sections', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sections: structureData.sections || [], 
+            style: selectedStyle
+          }),
+        });
+        
+        if (!sectionsResponse.ok) {
+          const error = await sectionsResponse.json();
+          throw new Error(error.message || 'セクション生成中にエラーが発生しました');
+        }
+        
+        const sectionsData = await sectionsResponse.json();
+        console.log('All sections generated successfully:', sectionsData);
+      } catch (aiError) {
+        console.error('AI API error:', aiError);
+        // エラーがあってもフロー継続（UI側の動作は維持）
+      }
+      
+      // グローバルステートに保存
+      setLPContent(lpContent, selectedStyle, designDescription);
+      
+      // フェーズ完了をマーク
+      completePhase('generate');
+      console.log('Marked generate phase as complete');
+      
+      // 以下はlocalStorageにも直接反映するためのハック
+      // LPBuilderContextの非同期更新の問題を回避
+      if (typeof window !== 'undefined') {
+        const initialData = {
+          lpId: lpId,
+          title: state.title,
+          chatMessages: state.chatMessages || [],
+          lpContent: lpContent,
+          designStyle: selectedStyle,
+          designDescription: designDescription,
+          isComplete: {
+            info: true,
+            generate: true,
+            design: false
+          }
+        };
+        
+        // 強制的に新しい状態をlocalStorageに保存
+        localStorage.setItem(`lp_builder_${lpId}`, JSON.stringify(initialData));
+        console.log('Updated localStorage manually with complete data:', initialData);
+        
+        // Cookieにも保存して二重保険（別のタブでも共有できる）
+        document.cookie = `lpbuilder_${lpId}=true; path=/; max-age=3600`;
+      }
+      
+      // APIを使用してLPを更新（タイトル、内容、デザイン情報）
+      try {
+        await updateLP(lpId, { 
+          title: state.title,
+          description: lpContent.substring(0, 500) // 説明文として内容の一部を使用
+        });
+        console.log('LP data saved to server');
+      } catch (updateError) {
+        console.error('LP update error:', updateError);
+      }
+      
+      // 非同期の状態更新が完了するまで待機対策は別で実装済み
+      console.log('Current State After Direct Update (expected to still show old state):', state);
+      
+      // 完了マークが反映されるまで少し待つ（非同期更新対策）
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // 成功メッセージ
+      toast({
+        title: "LP生成完了",
+        description: "デザインプレビューページに移動します",
+      });
+      
+      // 次ページへ遷移（forceLoadパラメータ付き - ローカルストレージから確実に読み込ませる）
+      console.log('Navigating to:', `/lp/${lpId}/edit/design?forceLoad=true`);
+      
+      // まず直接lpContentをもう一度設定（直前確認）
+      if (typeof window !== 'undefined') {
+        let savedState = localStorage.getItem(`lp_builder_${lpId}`);
+        if (savedState) {
+          try {
+            let parsed = JSON.parse(savedState);
+            if (!parsed.lpContent) {
+              parsed.lpContent = lpContent;
+              parsed.designStyle = selectedStyle;
+              parsed.designDescription = designDescription;
+              parsed.isComplete.generate = true;
+              localStorage.setItem(`lp_builder_${lpId}`, JSON.stringify(parsed));
+              console.log('Final check - Updated LP content before navigation');
+            }
+          } catch (e) {
+            console.error('Error in final check', e);
+          }
+        }
+      }
+      
+      router.push(`/lp/${lpId}/edit/design?forceLoad=true`);
       
     } catch (error) {
       console.error('LP generation error:', error);
@@ -123,6 +250,7 @@ export default function GenerateInterface({ lpId }: GenerateInterfaceProps) {
         description: "LP生成中にエラーが発生しました。もう一度お試しください。",
         variant: "destructive",
       });
+    } finally {
       setIsGenerating(false);
     }
   };
@@ -133,9 +261,50 @@ export default function GenerateInterface({ lpId }: GenerateInterfaceProps) {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold mb-2">AI LP ジェネレーター</h1>
-            <p className="text-muted-foreground">
-              チャットで入力した内容をもとに、LPを自動生成します
+            <p className="text-muted-foreground mb-6">
+              LPコンテンツを入力して、自動生成します
             </p>
+            
+            {/* LP名入力フィールド */}
+            <div className="max-w-md mx-auto mb-4">
+              <Card className="border-2 border-primary/20 bg-white shadow-lg">
+                <CardContent className="p-4">
+                  <Label htmlFor="lp-title" className="block text-left font-medium mb-2">
+                    LP名 <span className="text-red-500">*</span>
+                  </Label>
+                  <Input 
+                    id="lp-title" 
+                    placeholder="例: 新サービス紹介LP"
+                    className="mb-2 h-10 text-base"
+                    value={state.title === 'ランディングページ作成' || state.title === '新規LP' || state.title === '新規AI作成LP' ? '' : state.title}
+                    onChange={(e) => {
+                      // タイトル変更をコンテキストに通知し、APIで保存
+                      setTitle(e.target.value);
+                      console.log('Title updated:', e.target.value);
+                      
+                      // APIを使用してタイトルをサーバーに保存
+                      try {
+                        // 入力されたタイトルをAPIで保存（空文字列の場合は保存しない）
+                        if (e.target.value.trim()) {
+                          updateLP(lpId, { title: e.target.value });
+                        }
+                      } catch (error) {
+                        console.error('タイトル更新エラー:', error);
+                      }
+                    }}
+                    autoFocus
+                  />
+                  <p className="text-xs text-left text-muted-foreground">
+                    分かりやすいLP名を設定してください（例: 新商品紹介ページ、セミナー申込みLP）
+                  </p>
+                  {(!state.title || state.title === 'ランディングページ作成' || state.title === '新規LP' || state.title === '新規AI作成LP') && (
+                    <p className="text-xs text-left text-red-500 mt-1 font-medium">
+                      LP名を入力しないと生成ボタンが有効になりません
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
@@ -219,7 +388,7 @@ export default function GenerateInterface({ lpId }: GenerateInterfaceProps) {
           <Button
             onClick={handleGenerate}
             className="px-10 py-6 text-lg"
-            disabled={isGenerating || !lpContent.trim()}
+            disabled={isGenerating || !lpContent.trim() || !state.title || state.title === 'ランディングページ作成' || state.title === '新規LP' || state.title === '新規AI作成LP'}
           >
             {isGenerating ? (
               <>

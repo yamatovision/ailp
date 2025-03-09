@@ -150,7 +150,7 @@ export default function LPDetailPage({ params }: { params: { id: string } }) {
   const statusBadge = getStatusBadge(lp.status);
   const createdDate = format(new Date(lp.createdAt), 'yyyy年MM月dd日', { locale: ja });
   const updatedDate = format(new Date(lp.updatedAt), 'yyyy年MM月dd日', { locale: ja });
-  const thumbnailSrc = lp.thumbnail || '/assets/placeholder-image.jpg';
+  const thumbnailSrc = lp.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100%25" height="100%25" viewBox="0 0 800 400"%3E%3Crect fill="%23f0f0f0" width="800" height="400"/%3E%3Ctext x="400" y="200" font-family="Arial" font-size="32" fill="%23999" text-anchor="middle" dominant-baseline="middle"%3EPreview Image%3C/text%3E%3C/svg%3E';
 
   return (
     <div className="space-y-6">
@@ -254,7 +254,7 @@ export default function LPDetailPage({ params }: { params: { id: string } }) {
                   fill
                   className="object-cover"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = '/assets/placeholder-image.jpg';
+                    (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100%25" height="100%25" viewBox="0 0 800 400"%3E%3Crect fill="%23f0f0f0" width="800" height="400"/%3E%3Ctext x="400" y="200" font-family="Arial" font-size="32" fill="%23999" text-anchor="middle" dominant-baseline="middle"%3EPreview Image%3C/text%3E%3C/svg%3E';
                   }}
                 />
               </div>

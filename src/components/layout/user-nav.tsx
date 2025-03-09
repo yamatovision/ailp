@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,12 +12,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useAuth } from '@/lib/auth/auth-context';
+import { useAuth } from '@/auth/hooks/use-auth';
 import { useRouter } from 'next/navigation';
+import { toast } from '@/components/ui/use-toast';
 
 export function UserNav() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading } = useAuth();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // ユーザー名のイニシャルを取得
   const getInitials = (name: string) => {
@@ -31,6 +34,39 @@ export function UserNav() {
     // @ts-ignore - Supabaseのuser.user_metadataの型が正確に定義されていない場合
     const userName = user.user_metadata?.name || 'ユーザー';
     return userName;
+  };
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    
+    try {
+      const result = await logout();
+      
+      if (!result.success) {
+        toast({
+          variant: 'destructive',
+          title: 'ログアウトエラー',
+          description: result.error || 'ログアウトに失敗しました',
+        });
+        return;
+      }
+      
+      toast({
+        title: 'ログアウト成功',
+        description: 'ログインページに移動します',
+      });
+      
+      // 直接リダイレクト（router.pushではなく）
+      window.location.href = '/login';
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'ログアウトエラー',
+        description: '予期せぬエラーが発生しました',
+      });
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   return (
@@ -52,15 +88,20 @@ export function UserNav() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem onClick={() => router.push('/dashboard/settings')}>
+          {/* アカウント設定ページは一時的に無効化 */}
+          <DropdownMenuItem disabled>
             <span className="mr-2">⚙️</span>
-            アカウント設定
+            アカウント設定（準備中）
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={logout} className="text-red-500">
+        <DropdownMenuItem 
+          onClick={handleLogout} 
+          className="text-red-500" 
+          disabled={isLoggingOut || isLoading}
+        >
           <span className="mr-2">🚪</span>
-          ログアウト
+          {isLoggingOut ? 'ログアウト中...' : 'ログアウト'}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { Smartphone, Monitor } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ButtonGroup } from '@/components/ui/button';
 
 interface PreviewControlsProps {
   previewMode: 'mobile' | 'desktop';
@@ -15,7 +14,7 @@ export default function PreviewControls({
   onPreviewModeChange
 }: PreviewControlsProps) {
   return (
-    <ButtonGroup>
+    <div className="flex space-x-2">
       <Button
         variant={previewMode === 'mobile' ? 'default' : 'outline'}
         size="sm"
@@ -32,6 +31,6 @@ export default function PreviewControls({
         <Monitor className="h-4 w-4 mr-1" />
         デスクトップ
       </Button>
-    </ButtonGroup>
+    </div>
   );
 }

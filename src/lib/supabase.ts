@@ -1,54 +1,54 @@
 import { createClient } from '@supabase/supabase-js';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { type Database } from '@/types/database';
 
-// 環境変数のチェックと開発用のフォールバック値の設定
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://example.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example';
+// 環境変数のチェック
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 // 開発環境のみで警告を表示
 if (process.env.NODE_ENV !== 'production') {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  if (!supabaseUrl || !supabaseAnonKey) {
     console.warn(
       '警告: Supabase環境変数が設定されていません。.env.localファイルに適切な値を設定してください。'
     );
   }
+  
+  // デバッグ情報
+  console.log('Supabase初期化:', { 
+    url: supabaseUrl.substring(0, 15) + '...', 
+    hasKey: !!supabaseAnonKey,
+    keyLength: supabaseAnonKey?.length || 0
+  });
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-export async function signUp(email: string, password: string, name: string) {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
+// クライアントコンポーネント用のクライアント
+export const createBrowserClient = () => {
+  return createClientComponentClient<Database>({
+    supabaseUrl,
+    supabaseKey: supabaseAnonKey,
     options: {
-      data: {
-        name,
-      },
-    },
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      }
+    }
   });
+};
 
-  return { data, error };
-}
+// 汎用的なAPIクライアント (主にサーバーサイドでの利用向け)
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 
-export async function signIn(email: string, password: string) {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-
-  return { data, error };
-}
-
-export async function signOut() {
-  const { error } = await supabase.auth.signOut();
-  return { error };
-}
-
-export async function getSession() {
-  const { data, error } = await supabase.auth.getSession();
-  return { data, error };
-}
-
-export async function getUser() {
-  const { data, error } = await supabase.auth.getUser();
-  return { data, error };
-}
+// クライアント側で直接使用しない - auth/services/auth-service.tsを使用すること
+export const _authUtils = {
+  getSupabaseClient: () => {
+    if (typeof window === 'undefined') {
+      // サーバーサイド
+      return supabase;
+    } else {
+      // クライアントサイド
+      return createBrowserClient();
+    }
+  }
+};

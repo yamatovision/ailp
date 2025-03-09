@@ -41,12 +41,33 @@ export default function DeviceAnalysis({ testId, componentIds = [] }: DeviceAnal
       setLoading(true);
       setError(null);
       try {
-        const data = await getDeviceData(selectedComponent);
-        setDeviceData(data);
+        // 開発環境用モックデータ
+        const mockData = {
+          desktop: {
+            variantA: { visitors: 983, conversions: 49, conversionRate: 4.98 },
+            variantB: { visitors: 971, conversions: 53, conversionRate: 5.46 },
+            improvement: 9.64,
+            winner: selectedComponent === 'cta' || selectedComponent === 'header' ? 'b' : null
+          },
+          mobile: {
+            variantA: { visitors: 705, conversions: 33, conversionRate: 4.68 },
+            variantB: { visitors: 716, conversions: 36, conversionRate: 5.03 },
+            improvement: 7.48,
+            winner: selectedComponent === 'cta' ? 'b' : null
+          }
+        };
+        
+        // APIへの実際の呼び出しはコメントアウト
+        // const data = await getDeviceData(selectedComponent);
+        
+        // モックデータを利用
+        setTimeout(() => {
+          setDeviceData(mockData);
+          setLoading(false);
+        }, 500); // ローディング状態を表示するための遅延
       } catch (error) {
         console.error('デバイス別データの取得に失敗しました', error);
         setError('デバイス別データの取得に失敗しました');
-      } finally {
         setLoading(false);
       }
     }

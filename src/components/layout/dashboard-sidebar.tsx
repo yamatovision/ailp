@@ -38,11 +38,12 @@ const items = [
     href: '/members',
     icon: Users,
   },
-  {
-    title: '設定',
-    href: '/settings',
-    icon: Settings,
-  },
+  // 設定ページは一時的に無効化
+  // {
+  //   title: '設定',
+  //   href: '/settings',
+  //   icon: Settings,
+  // },
 ];
 
 interface DashboardSidebarProps {

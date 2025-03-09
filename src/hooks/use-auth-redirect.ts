@@ -3,37 +3,28 @@
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/auth-context';
-
-// 認証が不要なパス
-const publicPaths = ['/', '/login', '/register', '/forgot-password', '/reset-password'];
+import { authService } from '@/lib/auth/auth-service';
 
 export function useAuthRedirect() {
+  // このフックはミドルウェアの補助として機能し、
+  // ミドルウェアが処理できないクライアントサイドの状態のみを扱う
+  
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     // ローディング中は何もしない
-    if (isLoading) return;
-
-    // 現在のパスがpublicPathsに含まれているか確認
-    const isPublicPath = publicPaths.some(path => 
-      pathname === path || 
-      pathname.startsWith(`${path}/`) ||
-      pathname.startsWith('/api/auth')
-    );
-
-    // 認証されていないユーザーがpublic以外にアクセスした場合はログインページにリダイレクト
-    if (!isAuthenticated && !isPublicPath) {
-      router.push('/login');
+    if (isLoading) {
       return;
     }
 
-    // 認証済みユーザーがpublicPathsにアクセスした場合はダッシュボードにリダイレクト
-    // ただし、ルートパス(/)へのアクセスはリダイレクトしない
-    if (isAuthenticated && isPublicPath && pathname !== '/') {
-      router.push('/dashboard');
-      return;
+    // 現在のパスがパブリックパスか確認
+    const isPublicPath = authService.isPublicPath(pathname);
+    
+    // 認証済みユーザーがログインページにいる場合のみダッシュボードにリダイレクト
+    if (isAuthenticated && (pathname === '/login' || pathname === '/register')) {
+      router.replace('/dashboard');
     }
   }, [isAuthenticated, isLoading, pathname, router]);
 

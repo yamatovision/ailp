@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlusCircle, FileText, PieChart, Users } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createLP } from '@/lib/api/lp';
 import { useToast } from '@/components/ui/use-toast';
@@ -13,37 +13,127 @@ export default function DashboardPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isCreating, setIsCreating] = useState(false);
+  
+  // セッション検証用（useEffectを使用して適切なタイミングで実行）
+  useEffect(() => {
+    // クライアント側のみで実行
+    if (typeof window !== 'undefined') {
+      const authVerified = localStorage.getItem('auth_verified');
+      
+      // 認証検証フラグが存在すればクリア
+      if (authVerified) {
+        localStorage.removeItem('auth_verified');
+      }
+    }
+  }, []);
 
-  // AIビルダーで直接作成
-  const createWithAI = async () => {
+  // LP作成処理（リダイレクトなし）
+  const createLP_NoRedirect = async () => {
+    console.log('【デバッグ】LP作成処理（リダイレクトなし）を開始');
     try {
       setIsCreating(true);
       
-      // 仮のタイトルでLPを作成
+      // 新規LPを作成
       const newLP = await createLP({
-        title: '新規AI作成LP',
+        title: '新規LP',
         description: 'AIビルダーで作成中のLP',
         status: 'draft',
         thumbnail: null,
       });
-
-      toast({
-        title: 'LP作成開始',
-        description: 'AIビルダーでLPを作成します',
-      });
-
-      // 直接生成フェーズに移行
-      router.push(`/lp/${newLP.id}/edit/generate`);
       
-      // デバッグ用
-      console.log(`Creating LP with ID: ${newLP.id}, redirecting to /lp/${newLP.id}/edit/generate`);
+      // ID生成の確認
+      if (!newLP || !newLP.id) {
+        throw new Error('LP IDが生成されませんでした');
+      }
+      
+      console.log('【デバッグ】LP作成成功。ID:', newLP.id);
+      
+      // トースト表示
+      toast({
+        title: 'LP作成完了',
+        description: `LP「${newLP.title}」の作成が完了しました。編集画面に移動します。`,
+      });
+      
+      // 生成されたLPのIDを返す（リダイレクトはこの関数の外で行う）
+      return newLP.id;
     } catch (error) {
-      console.error('LP作成エラー:', error);
+      console.error('【デバッグ】LP作成エラー詳細:', error);
       toast({
         title: 'エラー',
         description: 'LPの作成に失敗しました。もう一度お試しください。',
         variant: 'destructive',
       });
+      setIsCreating(false);
+      throw error; // エラーを上位に伝播させる
+    }
+  };
+  
+  // 明示的なリダイレクト処理
+  const redirectToEditGenerate = (lpId) => {
+    console.log('【デバッグ】リダイレクト関数が呼び出されました。lpId:', lpId);
+    
+    try {
+      // リダイレクト先のURL
+      const redirectUrl = `/lp/${lpId}/edit/generate`;
+      console.log('【デバッグ】リダイレクト先URL:', redirectUrl);
+      
+      // HTMLページ作成による強制リダイレクト
+      document.open();
+      document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta http-equiv="refresh" content="0;url=${redirectUrl}">
+          <title>リダイレクト中...</title>
+          <style>
+            body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f0f2f5; }
+            .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3f51b5; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin-right: 15px; }
+            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+            .container { text-align: center; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div style="display: flex; align-items: center; justify-content: center;">
+              <div class="loader"></div>
+              <div>リダイレクト中...</div>
+            </div>
+            <p>自動的に移動しない場合は、<a href="${redirectUrl}">こちらをクリック</a>してください。</p>
+          </div>
+          <script>
+            console.log("リダイレクトページがロードされました");
+            setTimeout(function() {
+              window.location.href = "${redirectUrl}";
+            }, 100);
+          </script>
+        </body>
+        </html>
+      `);
+      document.close();
+    } catch (error) {
+      console.error('【デバッグ】リダイレクト処理中のエラー:', error);
+      // 通常のリダイレクトにフォールバック
+      window.location.href = `/lp/${lpId}/edit/generate`;
+    }
+  };
+  
+  // メインのLP作成処理（作成とリダイレクトを分離）
+  const createWithAI = async () => {
+    // ボタンクリック時の詳細なログ
+    console.log('【デバッグ】新規LP作成ボタンがクリックされました - ' + new Date().toISOString());
+    
+    try {
+      // LP作成（リダイレクトなし）
+      const lpId = await createLP_NoRedirect();
+      console.log('【デバッグ】LP作成完了。遷移準備 - lpId:', lpId);
+      
+      // 少し待機してからリダイレクト
+      setTimeout(() => {
+        // 別の関数でリダイレクト処理
+        redirectToEditGenerate(lpId);
+      }, 300);
+    } catch (error) {
+      console.error('【デバッグ】処理全体のエラー:', error);
       setIsCreating(false);
     }
   };
@@ -53,13 +143,14 @@ export default function DashboardPage() {
       <div className="rounded-lg bg-white shadow-sm p-6 mb-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold tracking-tight">ダッシュボード</h1>
-          <Button 
-            className="bg-[#3f51b5] hover:bg-[#4a5dc7]"
-            onClick={createWithAI}
+          {/* LP管理ページと同じボタンを追加 */}
+          <Button
+            className="bg-[#3f51b5] hover:bg-[#4a5dc7] text-white"
+            onClick={() => router.push('/lp/new')}
             disabled={isCreating}
           >
             <PlusCircle className="mr-2 h-4 w-4" />
-            {isCreating ? '作成中...' : '新規LP作成'}
+            新規LP作成
           </Button>
         </div>
       </div>

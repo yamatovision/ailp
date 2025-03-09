@@ -4,24 +4,64 @@
 
 // テスト一覧を取得
 export async function getTests() {
-  const response = await fetch('/api/tests');
-  
-  if (!response.ok) {
-    throw new Error('テスト一覧の取得に失敗しました');
+  try {
+    const response = await fetch('/api/tests', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache'
+      },
+      cache: 'no-store'
+    });
+    
+    if (!response.ok) {
+      console.error('API応答エラー:', {
+        status: response.status,
+        statusText: response.statusText,
+      });
+      const text = await response.text();
+      console.error('レスポンス内容:', text);
+      throw new Error(`テスト一覧の取得に失敗しました (${response.status})`);
+    }
+    
+    const data = await response.json();
+    console.log('API応答成功:', data);
+    return data;
+  } catch (error) {
+    console.error('getTests エラー:', error);
+    throw error;
   }
-  
-  return response.json();
 }
 
 // テスト詳細を取得
 export async function getTestById(testId: string) {
-  const response = await fetch(`/api/tests/${testId}`);
-  
-  if (!response.ok) {
-    throw new Error('テスト情報の取得に失敗しました');
+  try {
+    const response = await fetch(`/api/tests/${testId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache'
+      },
+      cache: 'no-store'
+    });
+    
+    if (!response.ok) {
+      console.error('API応答エラー:', {
+        status: response.status,
+        statusText: response.statusText,
+      });
+      const text = await response.text();
+      console.error('レスポンス内容:', text);
+      throw new Error(`テスト詳細の取得に失敗しました (${response.status})`);
+    }
+    
+    return response.json();
+  } catch (error) {
+    console.error('getTestById エラー:', error);
+    throw error;
   }
-  
-  return response.json();
 }
 
 // 新規テストを作成

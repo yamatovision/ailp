@@ -19,16 +19,45 @@ export async function sendChatMessage(message: string, history: Message[] = []):
       
     console.log('Using API URL:', apiUrl);
     
+    // セッショントークンを取得する方法
+    let token = null;
+    
+    // 方法1: ローカルストレージから直接トークンを取得
+    try {
+      const supabaseToken = localStorage.getItem('supabase.auth.token');
+      if (supabaseToken) {
+        token = JSON.parse(supabaseToken)?.currentSession?.access_token;
+      }
+    } catch (e) {
+      console.warn('ローカルストレージからのトークン取得に失敗:', e);
+    }
+    
+    // 方法2: Supabaseセッションからも取得を試みる
+    if (!token) {
+      try {
+        const sbSession = localStorage.getItem('sb-localhost-auth-token');
+        if (sbSession) {
+          token = JSON.parse(sbSession)?.access_token;
+        }
+      } catch (e) {
+        console.warn('Supabaseセッションからのトークン取得に失敗:', e);
+      }
+    }
+
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        // 認証トークンがあれば追加
+        ...(token && { 'Authorization': `Bearer ${token}` }),
       },
       body: JSON.stringify({
         message,
         history,
         stream: false
       }),
+      // 認証Cookieを送信
+      credentials: 'include',
     });
 
     // レスポンスをテキストとして取得
@@ -81,16 +110,45 @@ export async function streamChatMessage(
       stream: true 
     });
     
+    // セッショントークンを取得する方法
+    let token = null;
+    
+    // 方法1: ローカルストレージから直接トークンを取得
+    try {
+      const supabaseToken = localStorage.getItem('supabase.auth.token');
+      if (supabaseToken) {
+        token = JSON.parse(supabaseToken)?.currentSession?.access_token;
+      }
+    } catch (e) {
+      console.warn('ローカルストレージからのトークン取得に失敗:', e);
+    }
+    
+    // 方法2: Supabaseセッションからも取得を試みる
+    if (!token) {
+      try {
+        const sbSession = localStorage.getItem('sb-localhost-auth-token');
+        if (sbSession) {
+          token = JSON.parse(sbSession)?.access_token;
+        }
+      } catch (e) {
+        console.warn('Supabaseセッションからのトークン取得に失敗:', e);
+      }
+    }
+
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        // 認証トークンがあれば追加
+        ...(token && { 'Authorization': `Bearer ${token}` }),
       },
       body: JSON.stringify({
         message,
         history,
         stream: true
       }),
+      // 認証Cookieを送信
+      credentials: 'include',
     });
 
     if (!response.ok) {

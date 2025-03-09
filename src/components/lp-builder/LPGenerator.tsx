@@ -89,16 +89,31 @@ export default function LPGenerator({ messages, onGenerate }: LPGeneratorProps) 
     setIsGenerating(true);
     
     try {
-      // 実際はAPIを呼び出す
-      // ここではモック動作のため setTimeout を使用
-      setTimeout(() => {
-        onGenerate(lpContent, selectedStyle, designDescription);
-        setIsGenerating(false);
-      }, 2000);
+      // LP解析と構造生成API呼び出し
+      const response = await fetch('/api/ai/analyze-structure', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: lpContent,
+          style: selectedStyle,
+          designDescription: designDescription
+        }),
+      });
       
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'LP構造解析中にエラーが発生しました');
+      }
+      
+      // 生成完了イベント発火
+      onGenerate(lpContent, selectedStyle, designDescription);
+      setIsGenerating(false);
     } catch (error) {
       console.error('LP generation error:', error);
       setIsGenerating(false);
+      // エラー通知を表示するロジックをここに追加
     }
   };
 

@@ -82,7 +82,8 @@ export function LpCard({ lp, onEdit, onDuplicate, onDelete }: LpCardProps) {
   const createdDate = format(new Date(lp.createdAt), 'yyyy年MM月dd日', { locale: ja });
 
   // サムネイル画像のフォールバック
-  const thumbnailSrc = lp.thumbnail || '/assets/placeholder-image.jpg';
+  // デフォルトの画像として青い背景を使用（画像がない場合）
+  const thumbnailSrc = lp.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%233f51b5" /%3E%3Ctext x="50" y="50" font-family="Arial" font-size="14" fill="white" text-anchor="middle" dominant-baseline="middle"%3E' + encodeURIComponent(lp.title.charAt(0)) + '%3C/text%3E%3C/svg%3E';
 
   const handleDeleteConfirm = () => {
     onDelete();
@@ -101,10 +102,7 @@ export function LpCard({ lp, onEdit, onDuplicate, onDelete }: LpCardProps) {
               sizes="(max-width: 768px) 100vw, 33vw"
               className="object-cover"
               priority={false}
-              onError={(e) => {
-                // エラーが発生した場合はプレースホルダー画像を表示
-                (e.target as HTMLImageElement).src = '/assets/placeholder-image.jpg';
-              }}
+              unoptimized={!lp.thumbnail} // データURL用
             />
           )}
           <div className="absolute top-2 right-2">

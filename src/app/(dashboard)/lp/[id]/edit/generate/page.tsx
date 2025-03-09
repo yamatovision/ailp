@@ -22,6 +22,15 @@ export default function LPGeneratePage({ params }: { params: { id: string } }) {
         setLoading(true);
         const data = await getLP(params.id);
         setTitle(data.title);
+        
+        // タイトル入力を求めるメッセージを表示しない
+        // 開発中は何度も表示されるとうっとうしいため、コメントアウト
+        // if (data.title === '新規LP' || data.title === '新規AI作成LP') {
+        //   toast({
+        //     title: 'LP名を設定してください',
+        //     description: 'LP作成を開始するには、まずLP名を入力してください。',
+        //   });
+        // }
       } catch (error) {
         console.error('LPの読み込みに失敗しました:', error);
         toast({

@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { LpCard } from '@/components/dashboard/lp-card';
-import { getLPs, deleteLP, duplicateLP } from '@/lib/api/lp';
+import { getLPs, deleteLP, duplicateLP, createLP } from '@/lib/api/lp';
 
 // メタデータはサーバーコンポーネントでのみ動作するため、
 // 別のファイルに移動するか、Route Segmentsを使用する必要があります
@@ -49,8 +49,17 @@ export default function LPPage() {
       try {
         setLoading(true);
         const data = await getLPs();
-        setLPs(data);
-        setFilteredLPs(data);
+        
+        // data.lpsを使用して配列を取得する
+        if (data && data.lps) {
+          setLPs(data.lps);
+          setFilteredLPs(data.lps);
+        } else {
+          // APIレスポンスが期待した形式でない場合は空配列をセット
+          console.error('LP APIの応答が期待した形式ではありません:', data);
+          setLPs([]);
+          setFilteredLPs([]);
+        }
       } catch (error) {
         console.error('LPの読み込みに失敗しました:', error);
         toast({
@@ -58,6 +67,9 @@ export default function LPPage() {
           description: 'LPの読み込みに失敗しました。',
           variant: 'destructive',
         });
+        // エラー時は空配列をセット
+        setLPs([]);
+        setFilteredLPs([]);
       } finally {
         setLoading(false);
       }
@@ -90,9 +102,51 @@ export default function LPPage() {
     setFilteredLPs(result);
   }, [lps, activeTab, searchQuery]);
 
-  // 新規LP作成
-  const handleCreateNew = () => {
-    router.push('/lp/new');
+  // 新規LP作成 - 直接LP生成画面に遷移
+  const handleCreateNew = async () => {
+    try {
+      // ローディング状態を設定
+      setLoading(true);
+      
+      // 新規LPを作成
+      const newLP = await createLP({
+        title: '新規LP',
+        description: 'AIビルダーで作成中のLP',
+        status: 'draft',
+        thumbnail: null,
+      });
+      
+      toast({
+        title: 'LP作成開始',
+        description: 'AIビルダーでLPを作成します',
+      });
+      
+      // 直接生成画面に遷移
+      router.push(`/lp/${newLP.id}/edit/generate`);
+    } catch (error) {
+      console.error('LP作成エラー:', error);
+      
+      // エラー表示
+      toast({
+        title: 'エラー',
+        description: 'LPの作成に失敗しました。再ログインしてお試しください。',
+        variant: 'destructive',
+      });
+      
+      setLoading(false);
+      
+      // 認証エラーが発生した場合はログインページにリダイレクト
+      if (error instanceof Error && (
+        error.message.includes('認証') || 
+        error.message.includes('auth') || 
+        error.message.includes('401')
+      )) {
+        // 少し待ってからリダイレクト（トーストメッセージを見せるため）
+        setTimeout(() => {
+          router.push('/login?redirectTo=' + encodeURIComponent(window.location.pathname));
+        }, 1500);
+      }
+    }
   };
 
   // LP編集
@@ -217,9 +271,22 @@ export default function LPPage() {
                 )}
               </div>
               
-              <Button className="bg-[#3f51b5] hover:bg-[#4a5dc7] text-white whitespace-nowrap" onClick={handleCreateNew}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                新規LP作成
+              <Button 
+                className="bg-[#3f51b5] hover:bg-[#4a5dc7] text-white whitespace-nowrap" 
+                onClick={handleCreateNew}
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin mr-2 h-4 w-4 border-2 border-b-transparent border-white rounded-full"></div>
+                    作成中...
+                  </>
+                ) : (
+                  <>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    新規LP作成
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -294,9 +361,22 @@ function RenderLPs({
         <p className="text-gray-600 text-center max-w-md">
           LPを作成してA/Bテストを開始しましょう。AIが効果的なLPの作成をサポートします。
         </p>
-        <Button onClick={onCreateNew} className="bg-[#3f51b5] hover:bg-[#4a5dc7] text-white">
-          <PlusCircle className="mr-2 h-4 w-4" />
-          <span className="text-white">新規LP作成</span>
+        <Button 
+          onClick={onCreateNew} 
+          className="bg-[#3f51b5] hover:bg-[#4a5dc7] text-white"
+          disabled={loading}
+        >
+          {loading ? (
+            <>
+              <div className="animate-spin mr-2 h-4 w-4 border-2 border-b-transparent border-white rounded-full"></div>
+              <span className="text-white">作成中...</span>
+            </>
+          ) : (
+            <>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              <span className="text-white">新規LP作成</span>
+            </>
+          )}
         </Button>
       </div>
     );

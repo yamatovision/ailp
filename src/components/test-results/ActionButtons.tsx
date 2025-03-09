@@ -24,7 +24,7 @@ export default function ActionButtons({ testId, components, results }: ActionBut
     return result?.winningVariant && !result.appliedToProduction;
   });
   
-  // すべての勝者をまとめて適用する関数
+  // すべての勝者をまとめて適用する関数 (開発環境用のモック実装)
   const handleApplyAllWinners = async () => {
     if (componentsWithWinners.length === 0) return;
     
@@ -32,14 +32,20 @@ export default function ActionButtons({ testId, components, results }: ActionBut
     setError(null);
     
     try {
+      // 実際の適用処理をシミュレート
       for (const component of componentsWithWinners) {
-        const result = results.find(r => r.componentId === component.id);
-        if (result?.winningVariant) {
-          setApplyingId(component.id);
-          await applyWinner(testId, component.id, result.winningVariant);
-        }
+        setApplyingId(component.id);
+        // 処理時間をシミュレート
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        // 実際のAPI呼び出しはコメントアウト
+        // await applyWinner(testId, component.id, result.winningVariant);
       }
       
+      // 成功メッセージを表示
+      alert('すべての勝者バリアントを適用しました（開発環境モック）');
+      
+      // ページ更新
       router.refresh();
     } catch (error) {
       console.error('勝者適用に失敗しました', error);
@@ -50,7 +56,7 @@ export default function ActionButtons({ testId, components, results }: ActionBut
     }
   };
   
-  // 個別コンポーネントの勝者を適用する関数
+  // 個別コンポーネントの勝者を適用する関数 (開発環境用のモック実装)
   const handleApplyWinner = async (componentId: string) => {
     const result = results.find(r => r.componentId === componentId);
     if (!result?.winningVariant) return;
@@ -60,7 +66,16 @@ export default function ActionButtons({ testId, components, results }: ActionBut
     setError(null);
     
     try {
-      await applyWinner(testId, componentId, result.winningVariant);
+      // 処理時間をシミュレート
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // 実際のAPI呼び出しはコメントアウト
+      // await applyWinner(testId, componentId, result.winningVariant);
+      
+      // 成功メッセージを表示
+      const componentName = components.find(c => c.id === componentId)?.componentType || componentId;
+      alert(`${componentName}の勝者バリアントを適用しました（開発環境モック）`);
+      
       router.refresh();
     } catch (error) {
       console.error('勝者適用に失敗しました', error);
@@ -73,18 +88,23 @@ export default function ActionButtons({ testId, components, results }: ActionBut
   
   // 新しいテストを作成する関数
   const handleCreateNextTest = () => {
-    router.push(`/dashboard/lp/${testId}/test`);
+    alert('新しいテスト作成ページへ移動します（開発環境モック）');
+    // 実際の実装では適切なページに遷移
+    // router.push(`/dashboard/lp/${testId}/test`);
+    router.push('/tests');
   };
   
   // プレビューを表示する関数
   const handlePreview = () => {
-    // 実装予定: プレビューページへの遷移
-    router.push(`/dashboard/lp/${testId}/preview`);
+    alert('LPプレビューを表示します（開発環境モック）');
+    // 実際の実装では適切なページに遷移
+    // router.push(`/dashboard/lp/${testId}/preview`);
+    router.push('/lp');
   };
   
   // テスト一覧に戻る関数
   const handleBackToList = () => {
-    router.push('/dashboard/tests');
+    router.push('/tests');
   };
   
   return (

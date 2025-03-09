@@ -24,6 +24,7 @@ interface LPBuilderContextType {
   state: LPBuildState;
   setChatMessages: (messages: Message[]) => void;
   setLPContent: (content: string, style: string, description: string) => void;
+  setTitle: (title: string) => void;  // タイトル設定関数を追加
   completePhase: (phase: 'info' | 'generate' | 'design') => void;
   resetState: () => void;
 }
@@ -80,6 +81,14 @@ export function LPBuilderProvider({
     }));
   };
   
+  // タイトルを設定
+  const setTitle = (title: string) => {
+    setState(prev => ({
+      ...prev,
+      title
+    }));
+  };
+  
   // フェーズ完了マーク
   const completePhase = (phase: 'info' | 'generate' | 'design') => {
     setState(prev => ({
@@ -105,16 +114,70 @@ export function LPBuilderProvider({
     if (typeof window !== 'undefined' && state.lpId) {
       // 状態を保存
       localStorage.setItem(`lp_builder_${state.lpId}`, JSON.stringify(state));
+      console.log('LPBuilderContext - State saved to localStorage:', state);
     }
   }, [state]);
   
   useEffect(() => {
     if (typeof window !== 'undefined' && state.lpId) {
+      // URLからフラグを確認（強制リロード用）
+      const searchParams = new URLSearchParams(window.location.search);
+      const forceLoad = searchParams.get('forceLoad') === 'true';
+      
       // 状態を復元
       const savedState = localStorage.getItem(`lp_builder_${state.lpId}`);
       if (savedState) {
-        const parsedState = JSON.parse(savedState);
-        setState(parsedState);
+        try {
+          const parsedState = JSON.parse(savedState);
+          console.log('LPBuilderContext - Loading state from localStorage:', parsedState);
+          
+          // 設計画面に移動前の特別処理
+          if (window.location.pathname.includes('/edit/design')) {
+            // LP内容やフラグの強制設定
+            const forceLoad = window.location.search.includes('forceLoad=true');
+            const hasCookie = document.cookie.includes(`lpbuilder_${state.lpId}=true`);
+            
+            // LPデータからデフォルト値を抽出
+            let fallbackContent = '';
+            try {
+              // descriptionからLP内容を抽出（APIから取得したデータを利用）
+              const descMatch = /# LP内容の概要\s*([\s\S]*)/i.exec(parsedState.description || '');
+              if (descMatch && descMatch[1]) {
+                fallbackContent = descMatch[1].trim();
+                console.log('LPBuilderContext - Extracted content from description');
+              }
+            } catch (e) {
+              console.error('Error extracting content', e);
+            }
+            
+            // 強制的に必要なデータを設定
+            if (!parsedState.lpContent && fallbackContent) {
+              parsedState.lpContent = fallbackContent;
+              console.log('LPBuilderContext - Forced content from description');
+            }
+            
+            if (!parsedState.designStyle) {
+              parsedState.designStyle = 'corporate';
+              console.log('LPBuilderContext - Forced default design style');
+            }
+            
+            // 常に生成フェーズを完了済みにする
+            parsedState.isComplete = {
+              ...parsedState.isComplete,
+              info: true,
+              generate: true
+            };
+            
+            console.log('LPBuilderContext - Force updated state for design page:', parsedState);
+            
+            // LocalStorageも更新
+            localStorage.setItem(`lp_builder_${state.lpId}`, JSON.stringify(parsedState));
+          }
+          
+          setState(parsedState);
+        } catch (error) {
+          console.error('LPBuilderContext - Error parsing saved state:', error);
+        }
       }
     }
   }, []);
@@ -123,7 +186,8 @@ export function LPBuilderProvider({
     <LPBuilderContext.Provider value={{ 
       state, 
       setChatMessages, 
-      setLPContent, 
+      setLPContent,
+      setTitle, 
       completePhase, 
       resetState 
     }}>

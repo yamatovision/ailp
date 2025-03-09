@@ -89,3 +89,39 @@ export function getStatusLabel(status: string) {
       return status;
   }
 }
+
+/**
+ * API用の共通認証関数
+ * Cookie認証とBearer token認証の両方に対応
+ * 
+ * @param req Request オブジェクト
+ * @param cookies cookies 関数 (Next.jsのheadersからインポート)
+ * @param supabase supabaseクライアント
+ * @param createRouteHandlerClient createRouteHandlerClient関数 (@supabase/auth-helpers-nextjsからインポート)
+ */
+export async function getUserSession(
+  req: Request, 
+  cookies: any, 
+  supabase: any, 
+  createRouteHandlerClient: any
+) {
+  // Cookie経由でセッションを取得
+  const supabaseServerClient = createRouteHandlerClient({ cookies });
+  const { data, error } = await supabaseServerClient.auth.getSession();
+  
+  if (error || !data.session) {
+    // 認証ヘッダーから取得を試みる
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      const { data: userData, error: userError } = await supabase.auth.getUser(token);
+      
+      if (!userError && userData.user) {
+        return { user: userData.user };
+      }
+    }
+    return null;
+  }
+  
+  return data.session;
+}

@@ -3,12 +3,20 @@
 import React, { useState, useEffect } from 'react';
 import { DashboardHeader } from '@/components/layout/dashboard-header';
 import { DashboardSidebar } from '@/components/layout/dashboard-sidebar';
+import { useProtected } from '@/auth/hooks/use-protected';
+import { useSyncUser } from '@/lib/auth/hooks/use-sync-user';
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // クライアントサイドの認証保護
+  useProtected();
+  
+  // ユーザー同期を自動的に行う
+  useSyncUser();
+  
   // デフォルトでは閉じた状態
   const [sidebarOpen, setSidebarOpen] = useState(false);
   

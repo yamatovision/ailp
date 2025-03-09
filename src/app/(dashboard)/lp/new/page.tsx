@@ -94,9 +94,12 @@ export default function NewLPPage() {
     try {
       setIsSubmitting(true);
       
-      // 仮のタイトルでLPを作成
+      // フォームから現在のタイトルを取得
+      const title = form.getValues('title');
+      
+      // タイトルとLP作成情報を使用してLPを作成
       const newLP = await createLP({
-        title: '新規AI作成LP',
+        title: title || '新規AI作成LP',
         description: 'AIビルダーで作成中のLP',
         status: 'draft',
         thumbnail: null,
@@ -104,7 +107,7 @@ export default function NewLPPage() {
 
       toast({
         title: 'LP作成開始',
-        description: 'AIビルダーでLPを作成します',
+        description: `「${title || '新規LP'}」の作成を開始します`,
       });
 
       // 直接生成フェーズに移行（chatフェーズをスキップ）
@@ -211,30 +214,67 @@ export default function NewLPPage() {
         </TabsContent>
 
         <TabsContent value="ai" className="mt-0">
-          <div className="max-w-3xl mx-auto text-center">
-            <div className="bg-card rounded-lg border shadow-sm p-10">
-              <h2 className="text-2xl font-bold mb-4">AIを使ってLPを作成</h2>
-              <p className="text-muted-foreground mb-8">
-                AIビルダーを使用して、会話形式でLPを作成します。質問に答えるだけで、最適なLPが自動生成されます。
-              </p>
-              
-              <Button
-                size="lg"
-                className="px-8 py-6 text-lg"
-                onClick={createWithAI}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-                    作成中...
-                  </>
-                ) : (
-                  'AIビルダーで作成を開始'
-                )}
-              </Button>
+          <Form {...form}>
+            <div className="max-w-3xl mx-auto">
+              <div className="bg-card rounded-lg border shadow-sm p-10">
+                <h2 className="text-2xl font-bold mb-4 text-center">AIを使ってLPを作成</h2>
+                <p className="text-muted-foreground mb-6 text-center">
+                  AIビルダーを使用して、会話形式でLPを作成します。質問に答えるだけで、最適なLPが自動生成されます。
+                </p>
+                
+                <div className="mb-8 max-w-lg mx-auto">
+                  <FormField
+                    control={form.control}
+                    name="title"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>LP名</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="例: 新サービス紹介LP"
+                            {...field}
+                            disabled={isSubmitting}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          分かりやすいLP名を設定してください。
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="text-center">
+                  <Button
+                    size="lg"
+                    className="px-8 py-6 text-lg"
+                    onClick={() => {
+                      // タイトルがない場合はエラー表示
+                      if (!form.getValues('title')) {
+                        form.setError('title', { 
+                          type: 'required', 
+                          message: 'LP名を入力してください' 
+                        });
+                        return;
+                      }
+                      createWithAI();
+                    }}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                        作成中...
+                      </>
+                    ) : (
+                      'AIビルダーで作成を開始'
+                    )}
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
+          </Form>
         </TabsContent>
       </Tabs>
     </div>
