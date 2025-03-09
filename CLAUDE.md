@@ -58,6 +58,7 @@ npm run build
 - レート制限対策: AIサービスの呼び出し制限に対応するキューイング
 
 ### セキュリティと認証に関する注意
+- **モック禁止**: いかなる機能も絶対にモック化しないでください。実際のデータベースとAPIを常に使用してください。
 - **認証機能のモック禁止**: 認証機能は必ず実際のSupabase認証を使用し、モックを作成しないこと
 - セキュアなセッション管理: 認証情報は適切に保護し、セッショントークンの管理を徹底すること
 - 統一されたリダイレクト処理: リダイレクト処理は一貫した方法で実装し、複数の手法を混在させないこと
@@ -134,6 +135,75 @@ For **DASHBOARD-01**:
 - ディレクトリ構造設計: 完了
 - 実装スコープ設計: 完了
 - 達成率: 40%
+
+## データベース接続に関する重要な注意
+
+### Supabase接続設定
+
+このプロジェクトではSupabaseのPostgreSQLデータベースを使用しています。接続時には以下の点に注意してください：
+
+1. **パスワードの扱い**: パスワードに特殊文字（`@`など）が含まれる場合、環境変数では URLエンコードしない形式で記述する必要があります。
+   - 正しい例: `Mikoto@123`
+   - 間違った例: `Mikoto%40123` (URLエンコードされている)
+
+2. **接続種類別のURL形式と推奨設定**:
+   - **トランザクションプーラー接続** (最も推奨): 
+     ```
+     DATABASE_URL=postgresql://postgres.qdjikxdmpctkfpvkqaof:PASSWORD@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres
+     ```
+   - **セッションプーラー接続**: 
+     ```
+     DATABASE_URL=postgresql://postgres.qdjikxdmpctkfpvkqaof:PASSWORD@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres
+     ```
+   - **直接接続** (バックアップとして設定): 
+     ```
+     DIRECT_URL=postgresql://postgres:PASSWORD@db.qdjikxdmpctkfpvkqaof.supabase.co:5432/postgres
+     ```
+
+3. **トランザクションプーラー推奨理由**:
+   - IPv4ネットワークとの互換性あり
+   - 多数のクライアント接続に対応
+   - 短時間の接続に最適化
+   - ポート番号が6543であることに注意（セッションプーラーは5432）
+
+4. **必須の環境変数設定**:
+   ```
+   # プールされた接続をDATABASE_URLとして使用
+   DATABASE_URL=postgresql://postgres.qdjikxdmpctkfpvkqaof:PASSWORD@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres
+   # 直接接続
+   DIRECT_URL=postgresql://postgres:PASSWORD@db.qdjikxdmpctkfpvkqaof.supabase.co:5432/postgres
+   # プリペアードステートメントを無効化（重要）
+   PRISMA_CLIENT_NO_PREPARED_STATEMENTS=true
+   ```
+
+5. **接続テスト**: データベース接続に問題がある場合は以下のテストスクリプトを使用してください：
+   ```bash
+   # 詳細な接続診断
+   node temp/detailed-connection-diagnostics.js
+   
+   # PrismaClientを使用した接続テスト
+   node temp/test-db-connection-v2.js
+   ```
+
+6. **接続エラーの一般的な解決方法**:
+   - DATABASE_URLをトランザクションプーラー（ポート6543）に変更する
+   - 必ずDIRECT_URLも設定する（Prismaマイグレーション用）
+   - PRISMA_CLIENT_NO_PREPARED_STATEMENTS=trueを設定する
+   - パスワード内の特殊文字が正しく扱われているか確認する
+   - 接続プールの最大接続数を確認する
+
+### データベース構築
+
+テーブルを構築するには以下のコマンドを実行します：
+```bash
+npx prisma db push
+```
+
+### トラブルシューティング
+
+- **接続エラー**: 「Can't reach database server」エラーが発生した場合は、まず接続文字列とパスワードの形式を確認してください。
+- **MaxClientsInSessionMode**: セッションプーラーの最大接続数に達した場合は、一部の接続を閉じるか、少し時間をおいて再試行してください。
+- **RLS(Row Level Security)警告**: Supabaseのセキュリティ設定で必要に応じてRLSを有効にしてください。
 
 ## チェックリスト
 - [x] 要件定義の完了

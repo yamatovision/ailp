@@ -12,9 +12,10 @@ interface LPBuildState {
   lpContent: string;
   designStyle: string;
   designDescription: string;
+  sections?: any[]; // セクション情報を追加
   isComplete: {
-    info: boolean;
     generate: boolean;
+    structure: boolean; // 構造分析フェーズを必須に変更
     design: boolean;
   };
 }
@@ -24,8 +25,9 @@ interface LPBuilderContextType {
   state: LPBuildState;
   setChatMessages: (messages: Message[]) => void;
   setLPContent: (content: string, style: string, description: string) => void;
+  setSections: (sections: any[]) => void; // セクション設定関数を追加
   setTitle: (title: string) => void;  // タイトル設定関数を追加
-  completePhase: (phase: 'info' | 'generate' | 'design') => void;
+  completePhase: (phase: 'generate' | 'structure' | 'design') => void;
   resetState: () => void;
 }
 
@@ -37,9 +39,10 @@ const initialState: LPBuildState = {
   lpContent: '',
   designStyle: '',
   designDescription: '',
+  sections: [],
   isComplete: {
-    info: true, // チャットフェーズをスキップするため、初期値をtrueに設定
     generate: false,
+    structure: false,
     design: false
   }
 };
@@ -51,16 +54,19 @@ const LPBuilderContext = createContext<LPBuilderContextType | undefined>(undefin
 export function LPBuilderProvider({ 
   children, 
   initialLpId = null,
-  initialTitle = 'ランディングページ作成'
+  initialTitle = 'ランディングページ作成',
+  initialLpContent = ''
 }: { 
   children: ReactNode;
   initialLpId?: string | null;
   initialTitle?: string;
+  initialLpContent?: string;
 }) {
   const [state, setState] = useState<LPBuildState>({
     ...initialState,
     lpId: initialLpId,
-    title: initialTitle
+    title: initialTitle,
+    lpContent: initialLpContent
   });
   
   // チャットメッセージを保存
@@ -81,6 +87,14 @@ export function LPBuilderProvider({
     }));
   };
   
+  // セクションを設定
+  const setSections = (sections: any[]) => {
+    setState(prev => ({
+      ...prev,
+      sections
+    }));
+  };
+  
   // タイトルを設定
   const setTitle = (title: string) => {
     setState(prev => ({
@@ -90,7 +104,7 @@ export function LPBuilderProvider({
   };
   
   // フェーズ完了マーク
-  const completePhase = (phase: 'info' | 'generate' | 'design') => {
+  const completePhase = (phase: 'generate' | 'structure' | 'design') => {
     setState(prev => ({
       ...prev,
       isComplete: {
@@ -112,9 +126,14 @@ export function LPBuilderProvider({
   // ローカルストレージへの保存/復元
   useEffect(() => {
     if (typeof window !== 'undefined' && state.lpId) {
-      // 状態を保存
-      localStorage.setItem(`lp_builder_${state.lpId}`, JSON.stringify(state));
-      console.log('LPBuilderContext - State saved to localStorage:', state);
+      try {
+        // ディープコピーして状態を保存
+        const stateCopy = JSON.parse(JSON.stringify(state));
+        localStorage.setItem(`lp_builder_${state.lpId}`, JSON.stringify(stateCopy));
+        console.log('LPBuilderContext - State saved to localStorage');
+      } catch (error) {
+        console.error('LPBuilderContext - Error saving state to localStorage:', error);
+      }
     }
   }, [state]);
   
@@ -164,7 +183,6 @@ export function LPBuilderProvider({
             // 常に生成フェーズを完了済みにする
             parsedState.isComplete = {
               ...parsedState.isComplete,
-              info: true,
               generate: true
             };
             
@@ -187,6 +205,7 @@ export function LPBuilderProvider({
       state, 
       setChatMessages, 
       setLPContent,
+      setSections,
       setTitle, 
       completePhase, 
       resetState 

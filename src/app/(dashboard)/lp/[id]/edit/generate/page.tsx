@@ -15,6 +15,9 @@ export default function LPGeneratePage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState('ランディングページ作成');
 
+  // サーバーから取得したLP内容
+  const [lpContent, setLpContent] = useState('');
+
   // LPデータの読み込み
   useEffect(() => {
     const fetchLP = async () => {
@@ -22,6 +25,12 @@ export default function LPGeneratePage({ params }: { params: { id: string } }) {
         setLoading(true);
         const data = await getLP(params.id);
         setTitle(data.title);
+        
+        // description（サーバーに保存されたLP内容）があれば設定
+        if (data.description) {
+          console.log('サーバーから取得したLP内容:', data.description);
+          setLpContent(data.description);
+        }
         
         // タイトル入力を求めるメッセージを表示しない
         // 開発中は何度も表示されるとうっとうしいため、コメントアウト
@@ -56,9 +65,13 @@ export default function LPGeneratePage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <LPBuilderProvider initialLpId={params.id} initialTitle={title}>
+    <LPBuilderProvider 
+      initialLpId={params.id} 
+      initialTitle={title}
+      initialLpContent={lpContent} // サーバーから取得したLP内容を初期値として渡す
+    >
       <LPBuilderLayout currentPhase="generate" lpId={params.id} title={title}>
-        <GenerateInterface lpId={params.id} />
+        <GenerateInterface lpId={params.id} initialContent={lpContent} />
       </LPBuilderLayout>
     </LPBuilderProvider>
   );

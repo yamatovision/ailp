@@ -6,9 +6,11 @@ import { ArrowLeft, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
+import { updateLP } from '@/lib/api/lp';
+import { useLPBuilder } from './LPBuilderContext';
 
 // フェーズの型
-type BuildPhase = 'info' | 'generate' | 'design';
+type BuildPhase = 'generate' | 'structure' | 'design';
 
 type LPBuilderLayoutProps = {
   children: React.ReactNode;
@@ -16,6 +18,7 @@ type LPBuilderLayoutProps = {
   currentPhase: BuildPhase;
   lpId: string;
   onPublish?: () => void;
+  customPublishButton?: React.ReactNode;
 };
 
 export default function LPBuilderLayout({
@@ -23,10 +26,12 @@ export default function LPBuilderLayout({
   title,
   currentPhase,
   lpId,
-  onPublish
+  onPublish,
+  customPublishButton
 }: LPBuilderLayoutProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const { state } = useLPBuilder();
   const [publishing, setPublishing] = useState(false);
 
   // フェーズ変更ハンドラ
@@ -35,31 +40,49 @@ export default function LPBuilderLayout({
     router.push(`/lp/${lpId}/edit/${phase}`);
   };
 
-  // 戻るボタンのハンドラ
+  // 戻るボタンのハンドラ - 一覧ページに直接戻る
   const handleBack = () => {
-    router.push(`/lp/${lpId}`);
+    router.push('/lp');
   };
 
-  // 公開ボタンクリックハンドラ
+  // 保存ボタンクリックハンドラ
   const handlePublish = async () => {
     setPublishing(true);
     
     try {
+      // カスタム処理があれば実行
       if (onPublish) {
         await onPublish();
-      } else {
-        // デフォルトの公開処理
-        toast({
-          title: "LPを公開しました",
-          description: "LPが正常に公開されました。",
-        });
-        router.push(`/lp/${lpId}`);
       }
+      
+      // 常にサーバーに保存する処理
+      if (lpId) {
+        console.log('サーバーにLPデータを保存中...');
+        console.log('state内容:', state);
+        
+        // LP情報をサーバーに保存
+        const lpContent = state.lpContent || '';
+        console.log('保存するLP内容:', lpContent);
+        
+        await updateLP(lpId, { 
+          title: state.title,
+          description: lpContent
+        });
+        console.log('LPデータがサーバーに保存されました');
+      }
+      
+      // 成功メッセージを表示
+      toast({
+        title: "LPを保存しました",
+        description: "LPが正常に保存されました。",
+      });
+      // 保存後も同じページに留まる
+      // router.push(`/lp/${lpId}`);
     } catch (error) {
-      console.error('Publishing error:', error);
+      console.error('Saving error:', error);
       toast({
         title: "エラー",
-        description: "公開中にエラーが発生しました。",
+        description: "保存中にエラーが発生しました。",
         variant: "destructive",
       });
     } finally {
@@ -88,12 +111,12 @@ export default function LPBuilderLayout({
           onValueChange={(value) => handlePhaseChange(value as BuildPhase)} 
           className="mx-auto"
         >
-          <TabsList className="grid grid-cols-3 w-[500px]">
-            <TabsTrigger value="info">
-              <span className="font-semibold mr-1.5">1.</span> 文章作成
-            </TabsTrigger>
+          <TabsList className="grid grid-cols-3 w-[650px]">
             <TabsTrigger value="generate">
-              <span className="font-semibold mr-1.5">2.</span> LP生成
+              <span className="font-semibold mr-1.5">1.</span> LP作成
+            </TabsTrigger>
+            <TabsTrigger value="structure">
+              <span className="font-semibold mr-1.5">2.</span> 構造作成
             </TabsTrigger>
             <TabsTrigger value="design">
               <span className="font-semibold mr-1.5">3.</span> デザイン調整
@@ -101,23 +124,25 @@ export default function LPBuilderLayout({
           </TabsList>
         </Tabs>
         
-        <Button
-          onClick={handlePublish}
-          disabled={publishing}
-          className="px-6"
-        >
-          {publishing ? (
-            <>
-              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              公開中...
-            </>
-          ) : (
-            <>
-              <Save className="mr-2 h-4 w-4" />
-              公開
-            </>
-          )}
-        </Button>
+        {customPublishButton || (
+          <Button
+            onClick={handlePublish}
+            disabled={publishing}
+            className="px-6"
+          >
+            {publishing ? (
+              <>
+                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                保存中...
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                保存
+              </>
+            )}
+          </Button>
+        )}
       </div>
       
       <div className="flex-1 overflow-hidden">

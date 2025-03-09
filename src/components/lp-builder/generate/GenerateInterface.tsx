@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/use-toast';
 
 import { useLPBuilder } from '../LPBuilderContext';
-import { updateLP } from '@/lib/api/lp';
+import { updateLP, generateLP } from '@/lib/api/lp';
 
 // デザインスタイルの型
 interface DesignStyle {
@@ -57,9 +57,10 @@ const designStyles: DesignStyle[] = [
 
 type GenerateInterfaceProps = {
   lpId: string;
+  initialContent?: string;
 };
 
-export default function GenerateInterface({ lpId }: GenerateInterfaceProps) {
+export default function GenerateInterface({ lpId, initialContent = '' }: GenerateInterfaceProps) {
   const router = useRouter();
   const { toast } = useToast();
   const { state, setLPContent, setTitle, completePhase } = useLPBuilder();
@@ -81,29 +82,28 @@ export default function GenerateInterface({ lpId }: GenerateInterfaceProps) {
     return content;
   };
 
-  const [lpContent, setContentState] = useState(state.lpContent || generateContent());
+  // 初期値の優先順位: 
+  // 1. コンテキストのLP内容
+  // 2. propsで渡されたinitialContent
+  // 3. 自動生成コンテンツ
+  const [lpContent, setContentState] = useState(state.lpContent || initialContent || generateContent());
+  
+  // コンポーネントマウント時、初期コンテンツをコンテキストに設定
+  useEffect(() => {
+    console.log('初期LP内容を設定:', lpContent);
+    if (lpContent && !state.lpContent) {
+      setLPContent(lpContent, state.designStyle || 'corporate', state.designDescription || '');
+    }
+  }, []);
   const [selectedStyle, setSelectedStyle] = useState(state.designStyle || 'corporate');
   const [designDescription, setDesignDescription] = useState(state.designDescription || '');
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // チャットデータの確認を無効化 - 直接生成ステップが利用できるように
+  // 初期化処理
   useEffect(() => {
-    // チャットデータがなくても直接生成できるようコメントアウト
-    // if (!state.isComplete.info) {
-    //   toast({
-    //     title: "前の手順が未完了です",
-    //     description: "LP情報の入力ページに戻ります。",
-    //     variant: "destructive",
-    //   });
-    //   router.push(`/lp/${lpId}/edit/info`);
-    // }
-    
-    // 代わりに、フェーズを完了済みとしてマーク
-    if (!state.isComplete.info) {
-      completePhase('info');
-      console.log('Marked info phase as complete');
-    }
-  }, [state.isComplete.info, completePhase, lpId]);
+    // この画面が最初のステップなので、特別な初期化は不要
+    console.log('Generate interface initialized');
+  }, []);
 
   const handleGenerate = async () => {
     console.log('Generate button clicked');
@@ -116,48 +116,17 @@ export default function GenerateInterface({ lpId }: GenerateInterfaceProps) {
       console.log('Design Description:', designDescription);
       console.log('Current Title:', state.title);
       
-      // AI API呼び出し - セクション構造を分析・生成する
+      // AI API呼び出し - 統合APIを使用
       try {
-        // 構造分析APIを呼び出し
-        const structureResponse = await fetch('/api/ai/analyze-structure', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            serviceInfo: lpContent,
-            targetAudience: designDescription,
-            style: selectedStyle
-          }),
+        // 統合APIを呼び出す
+        const lpResponse = await generateLP({
+          serviceInfo: lpContent,
+          targetAudience: designDescription,
+          style: selectedStyle
         });
         
-        if (!structureResponse.ok) {
-          const error = await structureResponse.json();
-          throw new Error(error.message || 'LP構造分析中にエラーが発生しました');
-        }
+        console.log('LP generated successfully:', lpResponse);
         
-        const structureData = await structureResponse.json();
-        console.log('Structure data received:', structureData);
-        
-        // セクション全体を生成APIを呼び出し
-        const sectionsResponse = await fetch('/api/ai/generate-all-sections', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            sections: structureData.sections || [], 
-            style: selectedStyle
-          }),
-        });
-        
-        if (!sectionsResponse.ok) {
-          const error = await sectionsResponse.json();
-          throw new Error(error.message || 'セクション生成中にエラーが発生しました');
-        }
-        
-        const sectionsData = await sectionsResponse.json();
-        console.log('All sections generated successfully:', sectionsData);
       } catch (aiError) {
         console.error('AI API error:', aiError);
         // エラーがあってもフロー継続（UI側の動作は維持）
@@ -181,7 +150,6 @@ export default function GenerateInterface({ lpId }: GenerateInterfaceProps) {
           designStyle: selectedStyle,
           designDescription: designDescription,
           isComplete: {
-            info: true,
             generate: true,
             design: false
           }
@@ -215,11 +183,11 @@ export default function GenerateInterface({ lpId }: GenerateInterfaceProps) {
       // 成功メッセージ
       toast({
         title: "LP生成完了",
-        description: "デザインプレビューページに移動します",
+        description: "構造作成ページに移動します",
       });
       
       // 次ページへ遷移（forceLoadパラメータ付き - ローカルストレージから確実に読み込ませる）
-      console.log('Navigating to:', `/lp/${lpId}/edit/design?forceLoad=true`);
+      console.log('Navigating to:', `/lp/${lpId}/edit/structure?forceLoad=true`);
       
       // まず直接lpContentをもう一度設定（直前確認）
       if (typeof window !== 'undefined') {
@@ -241,7 +209,7 @@ export default function GenerateInterface({ lpId }: GenerateInterfaceProps) {
         }
       }
       
-      router.push(`/lp/${lpId}/edit/design?forceLoad=true`);
+      router.push(`/lp/${lpId}/edit/structure?forceLoad=true`);
       
     } catch (error) {
       console.error('LP generation error:', error);
@@ -264,6 +232,20 @@ export default function GenerateInterface({ lpId }: GenerateInterfaceProps) {
             <p className="text-muted-foreground mb-6">
               LPコンテンツを入力して、自動生成します
             </p>
+            <Button
+              onClick={handleGenerate}
+              className="px-10 py-6 text-lg mb-6"
+              disabled={isGenerating || !lpContent.trim() || !state.title || state.title === 'ランディングページ作成' || state.title === '新規LP' || state.title === '新規AI作成LP'}
+            >
+              {isGenerating ? (
+                <>
+                  <div className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  LP生成中...
+                </>
+              ) : (
+                'AIでLP生成'
+              )}
+            </Button>
             
             {/* LP名入力フィールド */}
             <div className="max-w-md mx-auto mb-4">
@@ -318,9 +300,19 @@ export default function GenerateInterface({ lpId }: GenerateInterfaceProps) {
                   </p>
                   <Textarea
                     value={lpContent}
-                    onChange={(e) => setContentState(e.target.value)}
+                    onChange={(e) => {
+                      // ローカル状態を更新
+                      setContentState(e.target.value);
+                      // コンテキストにも即時反映（保存ボタンで使用するため）
+                      setLPContent(e.target.value, selectedStyle, designDescription);
+                    }}
                     className="min-h-[400px]"
                     placeholder="LPの内容をここで確認・編集できます..."
+                    onBlur={() => {
+                      // フォーカスが外れたときにもコンテキストを更新
+                      console.log('LP内容を更新:', lpContent);
+                      setLPContent(lpContent, selectedStyle, designDescription);
+                    }}
                   />
                 </CardContent>
               </Card>
@@ -340,7 +332,11 @@ export default function GenerateInterface({ lpId }: GenerateInterfaceProps) {
                       <Label htmlFor="design-style" className="mb-2 block">デザインスタイル</Label>
                       <Select
                         value={selectedStyle}
-                        onValueChange={setSelectedStyle}
+                        onValueChange={(value) => {
+                          setSelectedStyle(value);
+                          // コンテキストにも即時反映
+                          setLPContent(lpContent, value, designDescription);
+                        }}
                       >
                         <SelectTrigger id="design-style">
                           <SelectValue placeholder="デザインスタイルを選択" />
@@ -363,7 +359,11 @@ export default function GenerateInterface({ lpId }: GenerateInterfaceProps) {
                       <Input
                         id="design-description"
                         value={designDescription}
-                        onChange={(e) => setDesignDescription(e.target.value)}
+                        onChange={(e) => {
+                          setDesignDescription(e.target.value);
+                          // コンテキストにも即時反映
+                          setLPContent(lpContent, selectedStyle, e.target.value);
+                        }}
                         placeholder="例: 「明るく優しい雰囲気で、自然のイメージを取り入れたデザイン」"
                       />
                     </div>
@@ -384,21 +384,22 @@ export default function GenerateInterface({ lpId }: GenerateInterfaceProps) {
       </div>
       
       <div className="border-t p-4 bg-white">
-        <div className="max-w-5xl mx-auto flex justify-center">
+        <div className="max-w-5xl mx-auto flex justify-between">
           <Button
-            onClick={handleGenerate}
-            className="px-10 py-6 text-lg"
-            disabled={isGenerating || !lpContent.trim() || !state.title || state.title === 'ランディングページ作成' || state.title === '新規LP' || state.title === '新規AI作成LP'}
+            variant="outline"
+            onClick={() => router.push('/lp')}
           >
-            {isGenerating ? (
-              <>
-                <div className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                LP生成中...
-              </>
-            ) : (
-              'AIでLP生成'
-            )}
+            キャンセル
           </Button>
+          <div className="space-x-4">
+            <Button
+              onClick={() => router.push(`/lp/${lpId}/edit/structure`)}
+              className="px-10 py-6 text-lg"
+              disabled={!lpContent.trim() || !state.title || state.title === 'ランディングページ作成' || state.title === '新規LP' || state.title === '新規AI作成LP'}
+            >
+              次のステップへ進む
+            </Button>
+          </div>
         </div>
       </div>
     </div>

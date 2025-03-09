@@ -349,3 +349,53 @@ export async function deleteAllVariants(componentId: string): Promise<void> {
     throw new Error('バリアントの削除に失敗しました');
   }
 }
+
+// LP統合生成API
+export async function generateLP(data: { 
+  serviceInfo: string;
+  targetAudience: string;
+  style?: string;
+}): Promise<{ sections: any[], stats?: any }> {
+  try {
+    const result = await fetchAPI<{ sections: any[], stats?: any }>('/api/ai/generate-lp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    
+    return result;
+  } catch (error) {
+    console.error('Error generating LP:', error);
+    throw new Error('LPの生成に失敗しました');
+  }
+}
+
+// LP構造分析API
+export async function analyzeStructure(data: { 
+  serviceInfo: string;
+  targetAudience?: string;
+  goals?: string;
+}): Promise<{ sections: any[], meta?: any }> {
+  try {
+    console.log('analyzeStructure: API呼び出し開始', data);
+    
+    const url = '/api/ai/analyze-structure';
+    console.log('analyzeStructure: リクエスト先URL:', url);
+    
+    const result = await fetchAPI<{ sections: any[], meta?: any }>(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    
+    console.log('analyzeStructure: API呼び出し成功', result);
+    return result;
+  } catch (error) {
+    console.error('analyzeStructure: API呼び出しエラー:', error);
+    throw new Error('LP構造の分析に失敗しました');
+  }
+}

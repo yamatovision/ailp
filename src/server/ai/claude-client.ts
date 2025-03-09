@@ -12,8 +12,8 @@ const anthropic = new Anthropic({
   apiKey: apiKey || 'dummy-key-for-preventing-crash',
 });
 
-// モデル名を環境変数から取得（デフォルトはClaude 3 Sonnet）
-export const MODEL_NAME = process.env.CLAUDE_API_MODEL || 'claude-3-sonnet-20240229';
+// モデル名を環境変数から取得（デフォルトはClaude 3.7 Sonnet）
+export const MODEL_NAME = process.env.CLAUDE_API_MODEL || 'claude-3-7-sonnet-20250219';
 
 // ストリーミングレスポンスを処理する関数
 export async function streamCompletion(
@@ -24,7 +24,7 @@ export async function streamCompletion(
     systemPrompt?: string;
   } = {}
 ) {
-  const { temperature = 0.7, maxTokens = 4000, systemPrompt = '' } = options;
+  const { temperature = 0.7, maxTokens = 8192, systemPrompt = '' } = options;
 
   const stream = await anthropic.messages.create({
     model: MODEL_NAME,
@@ -47,7 +47,7 @@ export async function getCompletion(
     systemPrompt?: string;
   } = {}
 ) {
-  const { temperature = 0.7, maxTokens = 4000, systemPrompt = '' } = options;
+  const { temperature = 0.7, maxTokens = 8192, systemPrompt = '' } = options;
 
   if (!process.env.CLAUDE_API_KEY) {
     throw new Error('CLAUDE_API_KEY環境変数が設定されていません。AI機能を使用するには、この環境変数が必要です。');
@@ -83,7 +83,7 @@ export async function getBatchCompletions(
     maxTokens?: number;
   } = {}
 ) {
-  const { temperature = 0.7, maxTokens = 4000 } = options;
+  const { temperature = 0.7, maxTokens = 8192 } = options;
 
   // すべてのプロミスを作成
   const promises = prompts.map(async ({ id, prompt, systemPrompt }) => {

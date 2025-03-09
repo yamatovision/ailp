@@ -149,9 +149,9 @@ export default function LPPage() {
     }
   };
 
-  // LP編集
+  // LP編集 - 直接生成ページへ遷移
   const handleEdit = (id: string) => {
-    router.push(`/lp/${id}/edit`);
+    router.push(`/lp/${id}/edit/generate`);
   };
 
   // LP複製

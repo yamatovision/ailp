@@ -347,8 +347,8 @@ export default function WritingAssistant() {
     });
   };
 
-  // サイドバー折りたたみフラグ（デフォルトで閉じた状態）
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  // サイドバー折りたたみフラグ（デフォルトで開いた状態）
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const hoverAreaRef = useRef<HTMLDivElement>(null);
@@ -376,7 +376,8 @@ export default function WritingAssistant() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-80px)]">
+    <div className="flex h-screen overflow-hidden">
+
       {/* ホバーエリア */}
       <div 
         ref={hoverAreaRef}

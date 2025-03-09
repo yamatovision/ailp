@@ -7,34 +7,14 @@ import {
   getVariantGenerationPrompt 
 } from '../../server/ai/prompt-templates';
 
-// LPセクションのタイプ定義
-export type SectionType = 
-  | 'hero' 
-  | 'features' 
-  | 'testimonials' 
-  | 'pricing' 
-  | 'faq' 
-  | 'cta' 
-  | 'contact'
-  | string;
-
-// セクション定義の型
-export interface Section {
-  id: string;
-  type: SectionType;
-  title: string;
-  content: string;
-  html?: string;
-  variantHtml?: string;
-}
-
-// LP構造の型
-export interface LPStructure {
-  id: string;
-  name: string;
-  description: string;
-  sections: Section[];
-}
+// 型定義を別ファイルからインポート
+import { 
+  Section, 
+  SectionType, 
+  ComponentName, 
+  LPStructure,
+  SECTION_TYPE_TO_COMPONENT
+} from '@/types/structure';
 
 /**
  * ユーザー入力からLPの構造（セクション）を分析する
@@ -70,40 +50,63 @@ export async function analyzeLPStructure(
     }
     
     // レスポンスから適切な形式でセクション配列を構築
-    const sections: Section[] = [];
+    let sections: Section[] = [];
     
-    // structureDataの形式に応じて処理（APIのレスポンス形式に合わせる必要がある）
-    if (structureData.sections) {
-      // sections配列が含まれる場合
-      structureData.sections.forEach((section: any, index: number) => {
-        sections.push({
-          id: `section-${index}`,
-          type: section.type || 'generic',
-          title: section.title || `セクション ${index + 1}`,
-          content: section.content || section.description || '',
-        });
+    // 新しいAPIレスポンス形式に対応
+    if (structureData.sections && Array.isArray(structureData.sections)) {
+      // 新しいフォーマット: {sections: [{...}, {...}]}
+      sections = structureData.sections.map((section: any) => {
+        // 各セクションを標準化
+        const type = (section.type || 'custom').toLowerCase() as SectionType;
+        const componentName = section.componentName || SECTION_TYPE_TO_COMPONENT[type] || 'Custom';
+        
+        return {
+          id: section.id || `section-${section.position || 0}`,
+          type,
+          componentName: componentName as ComponentName,
+          title: section.title || `${componentName} Section`,
+          content: section.content || '',
+          position: section.position || 0,
+          isTestable: section.isTestable !== undefined ? section.isTestable : true
+        };
       });
+      
+      // 位置情報でソート
+      sections.sort((a, b) => a.position - b.position);
     } else if (Array.isArray(structureData)) {
-      // 直接配列の場合
-      structureData.forEach((section: any, index: number) => {
-        sections.push({
+      // 直接配列の場合（古い形式への対応）
+      sections = structureData.map((section: any, index: number) => {
+        const type = (section.type || 'custom').toLowerCase() as SectionType;
+        return {
           id: `section-${index}`,
-          type: section.type || 'generic',
+          type,
+          componentName: SECTION_TYPE_TO_COMPONENT[type] || 'Custom',
           title: section.title || `セクション ${index + 1}`,
           content: section.content || section.description || '',
-        });
+          position: index,
+          isTestable: true
+        };
       });
     } else {
-      // その他のケース（キーがセクションタイプの場合など）
-      Object.entries(structureData).forEach(([key, value], index) => {
+      // その他のケース（古い形式への対応）
+      sections = Object.entries(structureData).map(([key, value], index) => {
         const sectionData = value as any;
-        sections.push({
+        const type = key.toLowerCase() as SectionType;
+        return {
           id: `section-${index}`,
-          type: key.toLowerCase(),
+          type,
+          componentName: SECTION_TYPE_TO_COMPONENT[type] || 'Custom',
           title: sectionData.title || key,
           content: sectionData.content || sectionData.description || JSON.stringify(sectionData),
-        });
+          position: index,
+          isTestable: true
+        };
       });
+    }
+    
+    // セクションがない場合はエラー
+    if (sections.length === 0) {
+      throw new Error('AIが有効なセクション構造を生成できませんでした');
     }
     
     return sections;
