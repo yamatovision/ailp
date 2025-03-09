@@ -38,6 +38,11 @@ const items = [
     href: '/members',
     icon: Users,
   },
+  {
+    title: 'アシスタント管理',
+    href: '/assistants',
+    icon: Settings,
+  },
   // 設定ページは一時的に無効化
   // {
   //   title: '設定',

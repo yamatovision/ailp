@@ -1,10 +1,10 @@
-# 実装状況 (2025/03/08更新)
+# 実装状況 (2025/03/10更新)
 
 ## 全体進捗
-- 完成予定ファイル数: 23
-- 作成済みファイル数: 23
-- 進捗率: 100%
-- 最終更新日: 2025/03/08
+- 完成予定ファイル数: 31
+- 作成済みファイル数: 31
+- 進捗率: 90%
+- 最終更新日: 2025/03/10
 
 ## スコープ状況
 
@@ -16,9 +16,28 @@
 - [x] スコープ5: バリアントテスト機能 (100%)
 - [x] スコープ6: テスト結果分析 (100%)
 - [x] スコープ7: 会員管理機能 (100%)
+- [x] スコープ8: Web完結型ABテスト機能 (100%)
+  - [x] フェーズ1: 公開エンドポイント構築 (100%)
+  - [x] フェーズ2: トラッキング強化 (100%)
+  - [x] フェーズ3: データ永続化 (100%)
 
-### 進行中スコープ
-（進行中のスコープはありません）
+### 完了済みスコープ
+- [x] スコープ1: 初期セットアップ/環境構築 (100%)
+- [x] スコープ2: 認証システム (100%)
+- [x] スコープ3: ダッシュボード・LP管理 (100%)
+- [x] スコープ4: AI主導のLP作成機能 (100%)
+- [x] スコープ5: バリアントテスト機能 (100%)
+- [x] スコープ6: テスト結果分析 (100%)
+- [x] スコープ7: 会員管理機能 (100%)
+- [x] スコープ8: Web完結型ABテスト機能 (100%)
+  - [x] フェーズ1: 公開エンドポイント構築 (100%)
+  - [x] フェーズ2: トラッキング強化 (100%)
+  - [x] フェーズ3: データ永続化 (100%)
+- [x] スコープ9: デザインシステム永続化機能 (100%)
+  - [x] フェーズ1: データベースモデル拡張 (100%)
+  - [x] フェーズ2: APIエンドポイント実装 (100%)
+  - [x] フェーズ3: フロントエンド連携 (100%)
+  - [ ] フェーズ4: 共有機能 (スコープアウト)
 
 ### 未着手スコープ
 （未着手のスコープはありません）
@@ -138,200 +157,391 @@ ailp/
 ```
 
 ## 実装完了ファイル
-- ✅ src/app/(dashboard)/tests/[id]/page.tsx (スコープ6: テスト結果分析)
-- ✅ src/components/test-results/TestSummary.tsx (スコープ6: テスト結果分析)
-- ✅ src/components/test-results/ResultsTable.tsx (スコープ6: テスト結果分析)
-- ✅ src/components/test-results/DeviceAnalysis.tsx (スコープ6: テスト結果分析)
-- ✅ src/components/test-results/ActionButtons.tsx (スコープ6: テスト結果分析)
-- ✅ src/components/test-results/AIInsights.tsx (スコープ6: テスト結果分析)
-- ✅ src/app/api/analysis/route.ts (スコープ6: テスト結果分析)
-- ✅ src/app/api/analysis/device-data/[componentId]/route.ts (スコープ6: テスト結果分析)
-- ✅ src/app/api/analysis/cross-section/route.ts (スコープ6: テスト結果分析)
-- ✅ src/lib/api/analysis.ts (スコープ6: テスト結果分析)
-- ✅ src/lib/analysis/statistical-analysis.ts (スコープ6: テスト結果分析)
-- ✅ src/app/(dashboard)/members/page.tsx (スコープ7: 会員管理機能)
-- ✅ src/app/(dashboard)/members/[id]/page.tsx (スコープ7: 会員管理機能)
-- ✅ src/app/(dashboard)/members/invite/page.tsx (スコープ7: 会員管理機能)
-- ✅ src/components/members/MemberList.tsx (スコープ7: 会員管理機能)
-- ✅ src/components/members/MemberCard.tsx (スコープ7: 会員管理機能)
-- ✅ src/components/members/MemberForm.tsx (スコープ7: 会員管理機能)
-- ✅ src/components/members/InviteForm.tsx (スコープ7: 会員管理機能)
-- ✅ src/components/members/ActivityLog.tsx (スコープ7: 会員管理機能)
-- ✅ src/app/api/members/route.ts (スコープ7: 会員管理機能)
-- ✅ src/app/api/members/[id]/route.ts (スコープ7: 会員管理機能)
-- ✅ src/app/api/members/invite/route.ts (スコープ7: 会員管理機能)
-- ✅ src/lib/api/members.ts (スコープ7: 会員管理機能)
+- ✅ src/app/api/public/lp/[id]/route.ts（公開LP表示API）
+- ✅ src/app/public/lp/[id]/page.tsx（公開LP表示ページ）
+- ✅ src/components/public/PublicLPDisplay.tsx（LP表示コンポーネント）
+- ✅ src/components/public/TrackingScript.tsx（トラッキングスクリプト）
+- ✅ src/components/public/PublicFooter.tsx（公開用フッター）
+- ✅ src/app/api/tracking/pageview/route.ts（ページビュートラッキング）
+- ✅ src/app/api/tracking/component/route.ts（コンポーネントトラッキング）
+- ✅ src/app/api/tracking/event/route.ts（イベントトラッキング）
+- ✅ src/app/api/tracking/conversion/route.ts（コンバージョントラッキング）
+- ✅ src/app/api/tracking/scroll/route.ts（スクロールトラッキング）
+- ✅ src/app/api/tracking/exit/route.ts（離脱トラッキング）
+- ✅ src/app/api/lp/[id]/design-system/route.ts（デザインシステムAPI）
+- ✅ src/lib/ai/design-system-generator.ts（デザインシステム生成エンジン）
+- ✅ prisma/schema.prisma（デザインシステム対応データベースモデル）
+- ✅ src/lib/tracking/session.ts（セッション管理ユーティリティ）
+- ✅ src/lib/tracking/variant-manager.ts（バリアント管理ユーティリティ）
+- ✅ src/lib/tracking/tracker.ts（クライアント側トラッキングライブラリ）
+- ✅ src/app/api/tracking/batch/route.ts（バッチトラッキングAPI）
+- ✅ src/app/api/tracking/beacon/route.ts（Beacon API）
+- ✅ src/app/api/tracking/sync/route.ts（同期XMLHttpRequest用API）
+- ✅ temp/test-tracking-api.js（トラッキングAPIテスト）
+- ✅ temp/test-variant-logic.js（バリアント振り分けロジックテスト）
+- ✅ src/lib/api/tracking.ts（トラッキングAPI関数）
+- ✅ src/hooks/use-component-tracking.ts（コンポーネントトラッキングフック）
+- ✅ src/hooks/use-tracking-analysis.ts（トラッキング分析フック）
+- ✅ src/lib/analysis/real-time-analysis.ts（リアルタイム分析ツール）
+- ✅ src/app/api/tracking/stats/route.ts（統計情報API）
+- ✅ src/app/api/tracking/stats/components/route.ts（コンポーネント統計API）
+- ✅ src/app/api/tracking/stats/components/[componentId]/route.ts（コンポーネント詳細統計API）
+- ✅ src/app/api/tracking/stats/lp/[id]/route.ts（LP統計API）
+- ✅ src/app/api/tracking/stats/report/[testId]/route.ts（テストレポートAPI）
+- ✅ src/app/api/tracking/export/route.ts（データエクスポートAPI）
+- ✅ src/components/test-results/RealTimeStats.tsx（リアルタイム統計コンポーネント）
+- ✅ src/components/test-results/VariantComparison.tsx（バリアント比較コンポーネント）
+- ✅ src/components/public/TrackingHoc.tsx（トラッキングHOCコンポーネント）
+
+## 実装完了ファイル（追加分）
+- ✅ src/components/lp-builder/generate/GenerateInterface.tsx（デザインシステム生成UI）
+- ✅ src/lib/api/lp.ts（LP・デザインシステムAPI関数）
+- ✅ src/components/lp-builder/LPBuilderContext.tsx（LP作成コンテキスト）
 
 ## 引継ぎ情報
 
-### 現在のスコープ: スコープ7: 会員管理機能（完了）
-**スコープID**: MEMBERS-MANAGEMENT-01  
-**説明**: ユーザー・会員の管理機能と権限設定機能の実装  
+### 完了したスコープ: Web完結型ABテスト機能
+**スコープID**: WEB-AB-TEST-01  
+**説明**: リンク1つでABテスト可能なWeb完結型プラットフォームの構築  
+**状態**: ✓ 完了 (100%)
+
 **含まれる機能**:
-1. ✅ 会員一覧表示と検索機能
-2. ✅ 会員詳細情報の表示と編集
-3. ✅ 会員の追加と招待機能
-4. ✅ 権限レベル設定機能
-5. ✅ アクティビティログの表示
-6. ✅ 会員の無効化・削除機能
+1. ✅ 公開LP表示エンドポイント
+2. ✅ セッションベースのバリアント振り分け
+3. ✅ URLパラメータによるバリアント強制指定
+4. ✅ 基本的なトラッキングAPI
+5. ✅ クライアント側トラッキングライブラリ
+6. ✅ ビーコンAPIによる離脱前データ送信
+7. ✅ リアルタイムデータ集計
+8. ✅ ABテスト結果の統計分析自動化
 
-**実装したファイル**: 
-- [x] src/app/(dashboard)/members/page.tsx
-- [x] src/app/(dashboard)/members/[id]/page.tsx
-- [x] src/app/(dashboard)/members/invite/page.tsx
-- [x] src/components/members/MemberList.tsx
-- [x] src/components/members/MemberCard.tsx
-- [x] src/components/members/MemberForm.tsx
-- [x] src/components/members/InviteForm.tsx
-- [x] src/components/members/ActivityLog.tsx
-- [x] src/app/api/members/route.ts
-- [x] src/app/api/members/[id]/route.ts
-- [x] src/app/api/members/invite/route.ts
-- [x] src/lib/api/members.ts
+**実装済み機能一覧**:
+- 公開エンドポイントの基本構築（フェーズ1）
+  - `/api/public/lp/[id]` エンドポイント
+  - バリアント振り分けロジック
+  - セッション管理基盤
+  - 基本トラッキングAPIエンドポイント
+- トラッキング強化（フェーズ2）
+  - クライアント側トラッキングライブラリの実装
+  - イベントキューとバッチ処理
+  - セッション管理ユーティリティ
+  - バリアント管理ユーティリティ
+  - バッチトラッキングAPI
+  - Beacon API（離脱前データ送信）
+  - 同期XMLHttpRequest用API
+  - 包括的なテストスクリプト
+- データ永続化（フェーズ3）
+  - リアルタイム集計機能
+  - 統計分析機能
+  - ダッシュボード連携
+  - コンポーネントトラッキングフック
+  - トラッキングAPIクライアント関数
+  - 統計情報API
+  - コンポーネント統計API
+  - LP統計API
+  - テストレポートAPI
+  - データエクスポートAPI
+  - リアルタイム統計コンポーネント
+  - バリアント比較コンポーネント
+  - トラッキングHOCコンポーネント
 
-## バックエンド実装 (Phase 2) - 完了
+**技術的概要**:
+- トラッキングデータは `LPEvent`, `ComponentEvent`, `LPSession` テーブルに保存
+- 統計情報は集計されて `LPStats` および `ComponentStats` テーブルに格納
+- バリアント振り分けは `getComponentVariant` 関数で管理され、セッション情報および URL パラメータに基づいて決定
+- 統計的有意差検定は `performSignificanceTest` 関数で実装、Z検定アルゴリズムを採用
+- トラッキングイベントはバッチ処理され、クライアント側のキューで管理
+- 離脱イベントはBeacon APIまたは同期XMLHttpRequestでバックアップ送信
 
-バックエンド基盤の実装が完了しました。モックデータを実際のAPIに置き換え、データベースと連携するシステムを構築しました。
+**使用方法**:
+1. クライアント側でのトラッキング初期化:
+   ```tsx
+   import { initTracker } from '@/lib/tracking/tracker';
+   
+   // ページ読み込み時（LP表示ページにて）
+   useEffect(() => {
+     initTracker(lpId);
+   }, [lpId]);
+   ```
 
-### 実装完了内容
-- Supabase認証連携
-- Prismaを使ったデータベースアクセス
-- 以下のAPIエンドポイント実装：
+2. コンポーネントトラッキングの利用:
+   ```tsx
+   import { useComponentTracking } from '@/hooks/use-component-tracking';
+   
+   function MyComponent({ lpId, componentId }) {
+     const { variant, ref } = useComponentTracking({
+       lpId,
+       componentId,
+       trackVisibility: true,
+       trackClicks: true
+     });
+     
+     return (
+       <div ref={ref}>
+         {variant === 'a' ? <VariantA /> : <VariantB />}
+       </div>
+     );
+   }
+   ```
 
-1. **認証API**
-   - `/api/auth/login` - ログイン処理
-   - `/api/auth/register` - ユーザー登録処理
-   - `/api/auth/reset-password` - パスワードリセット処理
+3. 統計情報の表示:
+   ```tsx
+   import { useLPStats, useComponentStats } from '@/hooks/use-tracking-analysis';
+   import RealTimeStats from '@/components/test-results/RealTimeStats';
+   import VariantComparison from '@/components/test-results/VariantComparison';
+   
+   function TestResultsPage({ lpId, componentId }) {
+     return (
+       <div>
+         <RealTimeStats lpId={lpId} />
+         <VariantComparison lpId={lpId} componentId={componentId} />
+       </div>
+     );
+   }
+   ```
 
-2. **LPプロジェクト管理API**
-   - `/api/lp` - LPの一覧取得/作成
-   - `/api/lp/[id]` - 特定LPの取得/更新/削除/複製
+**既知の制限事項**:
+- 統計的有意差検定は単純なZ検定を使用しており、小さなサンプルサイズの場合には信頼性が低下
+- リアルタイム分析は定期的なポーリングに依存しており、WebSocketは実装されていない
+- タイミングの問題で一部のイベントは失われる可能性あり（特に離脱イベント）
+- 大量のトラフィックがある場合はデータベースの最適化が必要
 
-3. **コンポーネント管理API**
-   - `/api/lp/[id]/components` - コンポーネント一覧取得/作成/位置更新
-   - `/api/components/[id]` - 特定コンポーネントの取得/更新/削除
+### 現在のスコープ: デザインシステム永続化機能
+**スコープID**: DESIGN-SYSTEM-PERSISTENCE-01  
+**説明**: デザインシステムの永続化と他コンポーネントとの連携機能  
+**状態**: 🔄 進行中 (90%)
 
-4. **バリアント管理API**
-   - `/api/components/[id]/variants` - バリアント一覧取得/作成/一括削除
-   - `/api/variants/[id]` - 特定バリアントの取得/更新/削除
+**含まれる機能**:
+1. ✅ デザインシステムのデータベースモデル実装
+2. ✅ デザインシステム保存/取得API
+3. ✅ フロントエンドでのデザインシステム設定UI
+4. ✅ ローカルストレージとデータベースの二重保存
+5. ✅ API呼び出し関数の実装
+6. 🔄 コンテキスト連携機能の強化
+7. 🔄 構造・セクション生成時のデザインシステム適用
+8. ❌ デザインシステムの共有機能（スコープアウト）
 
-### データモデル構成
-1. **LPプロジェクト**
-   - プロジェクト全体の基本情報を管理
-   - ユーザーIDと紐づけて所有権管理
+**実装済み機能一覧**:
+- データベースモデルの拡張（フェーズ1 - 100%完了）
+  - `LP`モデルに`designSystem`と`designStyle`フィールド追加
+  - JSONデータ型でデザインシステム設定を保存可能に
+- APIエンドポイント実装（フェーズ2 - 100%完了）
+  - `/api/lp/[id]/design-system` エンドポイント（GET/POST）
+  - データベース連携処理
+  - リクエスト検証とエラーハンドリング
+- フロントエンド連携（フェーズ3 - 90%完了）
+  - デザインシステム生成UI拡張
+  - デザインシステムファイル生成機能
+  - APIクライアント関数実装
+  - コンテキスト連携（部分的に実装）
 
-2. **LPコンポーネント**
-   - 各セクション（ヒーロー、特徴、料金表など）を管理
-   - プロジェクトに紐づけて位置情報を保持
+**残りの作業**:
+- フロントエンド連携の完了（最優先）
+  - デザインシステム設定UI（GenerateInterface.tsx）の完成
+  - LP作成コンテキスト（LPBuilderContext.tsx）との完全な統合
+  - API関数（lp.ts）の最適化と機能拡張
+  - 構造・セクション生成時のデザインシステム適用ロジック
 
-3. **コンポーネントバリアント**
-   - A/B テスト用の異なるデザイン/内容バージョン
-   - HTML/CSS/JSコードを保持
+**技術的概要**:
+- デザインシステムはLPモデルのJSONフィールドに保存
+- デザインシステム設定は色、タイポグラフィ、スペーシング、ボーダーなどの基本要素を含む
+- フロントエンド側ではLPBuilderContextでデザインシステム状態を管理
+- 生成UIからデザインシステム設定を行い、APIを通じてデータベースに永続化
+- APIレスポンスとローカルストレージの二重保存により、ページリロード後も設定を維持
 
-### フロントエンド連携
-フロントエンドのAPIクライアント関数（`src/lib/api/lp.ts`）を更新し、モックデータから実際のAPIを使用するように変更しました。これにより、フロントエンドUIはそのままでバックエンドとの連携が完了しています。
+**修正が必要な既存ファイル**:
+1. `src/components/lp-builder/generate/GenerateInterface.tsx`
+   - デザインシステム設定UIの完成が必要
+   - 色・フォント選択インターフェースの改善
+   - プレビュー機能の強化
 
-### 認証フロー
-Supabaseを使用した認証フローが実装されています：
-- JWTトークンによる認証状態管理
-- リダイレクト処理とミドルウェアによる保護
-- 各APIエンドポイントでの権限確認
+2. `src/lib/api/lp.ts`
+   - デザインシステムAPI関数の最適化
+   - エラーハンドリングの強化
+   - キャッシュ戦略の実装
 
-## AI機能連携 (Phase 3) - 完了
+3. `src/components/lp-builder/LPBuilderContext.tsx`
+   - デザインシステム状態管理の完全統合
+   - 他のコンポーネントとの連携強化
+   - 設定変更時の自動保存機能
 
-AI機能連携フェーズ（Phase 3）の実装が完了しました。AIサービスとのインテグレーションにより、LP自動生成の中核機能が実現されました。
+**補足情報**:
+- デザインシステムのテーマ設定はColorMode（ダーク/ライト）にも対応する必要あり
+- モバイル/デスクトップでのレスポンシブ対応も考慮する
+- Tailwind CSSとの統合には特別な対応が必要
+- セクション生成時にデザインシステム設定を自動適用するロジックの実装が最も難易度が高い
 
-### 実装完了内容
+**開発備考**:
+- クライアント側でのデザインシステム設定変更によるリアルタイムプレビューの実装が最重要
+- LP作成ステップ間でのデザインシステム設定の引き継ぎに注意
+- 既存のLP編集時にはデザインシステム設定の読み込みと適用が必要
 
-#### 基本アーキテクチャ
-- サーバーサイドでのAI処理アーキテクチャを実装
-- クライアント→Next.js API→AI API→データベースというデータフロー
-- ストリーミングレスポンス処理のサポート
+## 次回実装予定スコープ
 
-#### AI連携基盤
-- ✅ `/src/server/ai/claude-client.ts` - Claude API接続クライアント
-- ✅ `/src/server/ai/openai-client.ts` - OpenAI API接続クライアント
-- ✅ `/src/server/ai/prompt-templates.ts` - 各機能用のプロンプトテンプレート
+### スコープ 1: デザインシステム連携の最終調整
+**スコープID**: DESIGN-SYSTEM-FINALIZATION-01  
+**説明**: デザインシステム永続化機能の最終調整とフロントエンド完全統合  
 
-#### LP作成フロー
-- ✅ `/api/ai/analyze-framework` - マーケティングフレームワーク分析API
-- ✅ `/api/ai/analyze-structure` - LP構造分析API
-- ✅ チャットインターフェース連携（会話履歴管理を含む）
+**含まれる機能**:
+1. デザインシステム設定UIの完成
+2. APIとの連携強化
+3. LP作成プロセスとの統合
+4. リアルタイムプレビュー連携
 
-#### コード生成機能
-- ✅ `/api/ai/generate-section` - セクション別HTMLコード生成API
-- ✅ `/api/ai/generate-all-sections` - 全セクション一括生成API
-- ✅ `/api/ai/improve-section` - セクション改善API
+**実装予定ファイル**:
+- [ ] src/components/lp-builder/generate/GenerateInterface.tsx（デザインシステム生成UI）
+- [ ] src/lib/api/lp.ts（LP・デザインシステムAPI関数）
+- [ ] src/components/lp-builder/LPBuilderContext.tsx（LP作成コンテキスト）
 
-#### バリアント生成機能
-- ✅ `/api/ai/generate-variant` - A/Bテスト用バリアント自動生成API
+**依存するスコープ**:
+- デザインシステム永続化機能（フェーズ1, 2, 3）
 
-#### フロントエンド連携
-- ✅ `GenerateInterface`コンポーネントにAI生成機能を統合
-- ✅ `DesignPreviewInterface`コンポーネントにバリアント生成と改善機能を統合
+## API検証情報
 
-### 実装の特長
+### バッチトラッキングAPI
+**エンドポイント**: POST /api/tracking/batch
 
-1. **効率的なプロンプトエンジニアリング**
-   - 高品質なHTML生成のためのセクション別専用プロンプト
-   - Tailwind CSSのユーティリティクラスを活用したスタイリング
-   - デザインの一貫性を保つためのプロンプト設計
+**検証コマンド**:
+```bash
+curl -X POST "http://localhost:3000/api/tracking/batch" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "events": [
+      {
+        "type": "pageview",
+        "lpId": "test-lp-id",
+        "sessionId": "test-session-123",
+        "timestamp": 1741505393626,
+        "meta": {
+          "url": "http://localhost:3000/test-page",
+          "referrer": "http://localhost:3000/"
+        }
+      }
+    ]
+  }'
+```
 
-2. **パフォーマンス最適化**
-   - セクション分割による並列処理の実装
-   - Promise.allを使用した複数APIリクエストの並行処理
-   - ストリーミング処理のサポート
+**成功レスポンス例**:
+```json
+{
+  "success": true,
+  "processedCount": 1
+}
+```
 
-3. **堅牢なエラーハンドリング**
-   - AI APIの呼び出しエラーに対する適切な処理
-   - ユーザー体験を損なわないためのUI側フォールバック機能
-   - デバッグ情報の記録と表示
+### Beacon API
+**エンドポイント**: POST /api/tracking/beacon
 
-4. **既存コードとの統合**
-   - `LPBuilderContext`を活用した状態管理
-   - データベースモデルとの連携
-   - UIコンポーネントへのAI機能の自然な統合
+**検証コマンド**:
+```bash
+curl -X POST "http://localhost:3000/api/tracking/beacon" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "events": [
+      {
+        "type": "exit",
+        "lpId": "test-lp-id",
+        "sessionId": "test-session-123",
+        "timestamp": 1741505393626,
+        "meta": {
+          "exitUrl": "http://localhost:3000/next-page",
+          "timeOnPage": 15000,
+          "scrollDepth": 85
+        }
+      }
+    ]
+  }'
+```
 
-### 技術的な特徴
-- **プロンプト最適化**: セクションタイプごとに最適化されたプロンプトテンプレート
-- **分散処理**: バッチ処理による複数セクションの並列生成
-- **ストリーミング**: チャットインターフェースでのリアルタイムレスポンス
-- **モジュラー設計**: 疎結合な機能コンポーネントによる拡張性の確保
+**成功レスポンス例**:
+空レスポンス（ステータスコード200）
 
-### 今後の拡張可能性
-- キャッシュ戦略の実装によるAPI呼び出しの最適化
-- ユーザーフィードバックに基づくプロンプトの継続的改善
-- より高度なA/Bテストバリアント生成アルゴリズムの導入
-- パーソナライズされたデザイン提案機能の追加
+### 統計情報API
+**エンドポイント**: GET /api/tracking/stats?lpId=:lpId
 
-Phase 3の実装により、AIを活用したLP作成システムの中核機能が完成しました。特にセクション分割による並列処理により、生成速度を向上させつつ、高品質なHTMLを作成することが可能になりました。
+**検証コマンド**:
+```bash
+curl -X GET "http://localhost:3000/api/tracking/stats?lpId=test-lp-id"
+```
 
-## 最適化とスケーリング (Phase 4) の実装計画
+**成功レスポンス例**:
+```json
+{
+  "total": 156,
+  "byType": {
+    "pageview": 42,
+    "component_view": 78,
+    "click": 23,
+    "conversion": 13
+  },
+  "byDevice": {
+    "desktop": 87,
+    "mobile": 60,
+    "tablet": 9
+  },
+  "byDate": {
+    "2025-03-08": 45,
+    "2025-03-09": 58,
+    "2025-03-10": 53
+  }
+}
+```
 
-Phase 3でAI機能連携が完了した後、最終段階としてシステムの安定性、パフォーマンス、スケーラビリティを強化するPhase 4を以下のように実装していきます：
+### コンポーネント統計API
+**エンドポイント**: GET /api/tracking/stats/components?lpId=:lpId
 
-1. **パフォーマンス最適化**
-   - フロントエンド最適化（コード分割、画像最適化、静的アセットのCDN配信）
-   - バックエンド最適化（クエリ最適化、N+1問題解決）
-   - AI処理最適化（プロンプト最適化、キャッシュ戦略、ジョブキュー実装）
+**検証コマンド**:
+```bash
+curl -X GET "http://localhost:3000/api/tracking/stats/components?lpId=test-lp-id"
+```
 
-2. **スケーラビリティ強化**
-   - 水平スケーリング対応
-   - データベーススケーリング（インデックス最適化）
-   - ストレージ最適化
+**成功レスポンス例**:
+```json
+[
+  {
+    "id": "comp-1",
+    "componentId": "comp-1",
+    "views": 120,
+    "clicks": 35,
+    "conversions": 10,
+    "variantA": {
+      "views": 60,
+      "clicks": 15,
+      "conversions": 4,
+      "conversionRate": 0.0667
+    },
+    "variantB": {
+      "views": 60,
+      "clicks": 20,
+      "conversions": 6,
+      "conversionRate": 0.1
+    },
+    "improvement": 50.0,
+    "confidence": 0.85,
+    "isSignificant": false
+  }
+]
+```
 
-3. **セキュリティ強化**
-   - 認証・認可の強化
-   - データ保護
-   - API保護（レート制限、XSS/CSRF対策）
+### エクスポートAPI
+**エンドポイント**: GET /api/tracking/export?lpId=:lpId&format=:format
 
-4. **監視と保守性向上**
-   - モニタリングシステム構築
-   - CI/CDパイプライン最適化
-   - デバッグツール拡充
+**検証コマンド**:
+```bash
+# JSONフォーマット
+curl -X GET "http://localhost:3000/api/tracking/export?lpId=test-lp-id&format=json"
 
-5. **ビジネス継続性の確保**
-   - 高可用性設計
-   - バックアップ戦略実装
+# CSVフォーマット
+curl -X GET "http://localhost:3000/api/tracking/export?lpId=test-lp-id&format=csv"
+```
 
-Phase 4の実装が完了すれば、本番環境に安心してデプロイできる堅牢なシステムとなります。特に重要なのはパフォーマンス最適化と監視システムの構築で、ユーザー体験を保証しながらシステムの安定性を確保できます。
+### 包括的なテスト
+実装したすべてのトラッキングAPIを一括でテストするには、作成したテストスクリプトを実行します：
+
+```bash
+# 包括的なAPIテスト
+node temp/test-tracking-api.js
+
+# バリアント振り分けロジックテスト
+node temp/test-variant-logic.js
+```

@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Save, Upload, Trash2, X, ChevronRight } from 'lucide-react';
+import { Send, Save, Upload, Trash2, X, ChevronRight, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { Message, sendChatMessage } from '@/lib/api/chat';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import Link from 'next/link';
 
 // タイピングインジケーターコンポーネント
 const TypingIndicator = () => (
@@ -22,35 +23,42 @@ const TypingIndicator = () => (
 type Assistant = {
   id: string;
   name: string;
-  description: string;
+  title?: string;
+  description?: string;
   systemPrompt: string;
+  initialMessage?: string;
+  referenceDocuments?: string;
 };
 
-// 利用可能なアシスタント
-const ASSISTANTS: Assistant[] = [
+// デフォルトのアシスタント
+const DEFAULT_ASSISTANTS: Assistant[] = [
   {
     id: 'web',
     name: 'Webサイト・LP',
     description: 'Webサイトやランディングページの文章作成',
-    systemPrompt: 'LP・Webサイト向け文章作成モードです。商品・サービスの特徴、ターゲット層、訴求ポイントなどを教えてください。'
+    systemPrompt: 'LP・Webサイト向け文章作成モードです。商品・サービスの特徴、ターゲット層、訴求ポイントなどを教えてください。',
+    initialMessage: 'こんにちは！Webサイトやランディングページの文章作成をお手伝いします。どのような内容についてサポートが必要ですか？'
   },
   {
     id: 'marketing',
     name: 'マーケティング',
     description: '広告文、メルマガ、セールスレター',
-    systemPrompt: 'マーケティング文書作成モードです。広告文、メルマガ、セールスレターなどの目的やターゲット、訴求内容を教えてください。'
+    systemPrompt: 'マーケティング文書作成モードです。広告文、メルマガ、セールスレターなどの目的やターゲット、訴求内容を教えてください。',
+    initialMessage: 'マーケティング資料の作成をサポートします。ターゲット層や訴求ポイントを教えていただけますか？'
   },
   {
     id: 'idea',
     name: 'アイデア整理',
     description: 'アイデアの整理や企画立案の支援',
-    systemPrompt: 'アイデア整理モードです。考えていることや整理したい内容を自由に入力してください。'
+    systemPrompt: 'アイデア整理モードです。考えていることや整理したい内容を自由に入力してください。',
+    initialMessage: 'アイデアの整理をお手伝いします。どのようなアイデアや企画について考えていますか？'
   },
   {
     id: 'seo',
     name: 'SEO対策',
     description: 'SEO対策を考慮したコンテンツ作成',
-    systemPrompt: 'SEO対策を考慮したコンテンツ作成モードです。対象キーワード、競合サイト、ターゲットユーザーを教えてください。'
+    systemPrompt: 'SEO対策を考慮したコンテンツ作成モードです。対象キーワード、競合サイト、ターゲットユーザーを教えてください。',
+    initialMessage: 'SEO対策を考慮したコンテンツ作成をサポートします。対象キーワードや競合サイトの情報を教えてください。'
   }
 ];
 
@@ -72,21 +80,51 @@ const FilePreview = ({ file, onRemove }: { file: File, onRemove: () => void }) =
 
 export default function WritingAssistant() {
   const { toast } = useToast();
-  const [selectedAssistant, setSelectedAssistant] = useState<Assistant>(ASSISTANTS[0]);
+  const [assistants, setAssistants] = useState<Assistant[]>(DEFAULT_ASSISTANTS);
+  const [selectedAssistant, setSelectedAssistant] = useState<Assistant>(DEFAULT_ASSISTANTS[0]);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
       role: 'system',
-      content: 'AI文章作成アシスタントへようこそ。どのような文章を作成したいですか？',
+      content: DEFAULT_ASSISTANTS[0].initialMessage || 'AI文章作成アシスタントへようこそ。どのような文章を作成したいですか？',
     },
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [exportContent, setExportContent] = useState('');
   const [files, setFiles] = useState<File[]>([]);
-  const [savedContents, setSavedContents] = useState<{id: number, title: string, content: string}[]>([]);
+  const [isLoadingAssistants, setIsLoadingAssistants] = useState(false);
+  // 保存済み文書管理は削除
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // アシスタント一覧を取得
+  useEffect(() => {
+    const fetchAssistants = async () => {
+      try {
+        setIsLoadingAssistants(true);
+        const response = await fetch('/api/assistants');
+        
+        if (!response.ok) {
+          throw new Error('アシスタント情報の取得に失敗しました');
+        }
+        
+        const data = await response.json();
+        
+        // サーバーからカスタムアシスタント一覧を取得できた場合
+        if (data && data.length > 0) {
+          setAssistants([...DEFAULT_ASSISTANTS, ...data]);
+        }
+      } catch (error) {
+        console.error('アシスタント情報取得エラー:', error);
+        // エラーの場合でもデフォルトのアシスタントは表示
+      } finally {
+        setIsLoadingAssistants(false);
+      }
+    };
+
+    fetchAssistants();
+  }, []);
 
   // メッセージが追加されたときに自動スクロール
   useEffect(() => {
@@ -97,14 +135,30 @@ export default function WritingAssistant() {
   const handleAssistantChange = (assistant: Assistant) => {
     setSelectedAssistant(assistant);
     
-    // アシスタントメッセージを追加
-    const systemMessage: Message = {
-      id: Date.now(),
-      role: 'system',
-      content: assistant.systemPrompt,
-    };
+    // 会話をリセット
+    const initialMessage = assistant.initialMessage || 'どのようなサポートが必要ですか？';
     
-    setMessages(prev => [...prev, systemMessage]);
+    // システムメッセージを設定
+    setMessages([
+      {
+        id: Date.now(),
+        role: 'system',
+        content: initialMessage,
+      }
+    ]);
+    
+    // 参考資料があれば処理
+    if (assistant.referenceDocuments) {
+      try {
+        const documents = JSON.parse(assistant.referenceDocuments);
+        if (Array.isArray(documents) && documents.length > 0) {
+          // 参考資料を会話に追加（TODO: 実装）
+          console.log('参考資料:', documents);
+        }
+      } catch (e) {
+        console.error('参考資料のパースエラー:', e);
+      }
+    }
   };
 
   // ファイルアップロードハンドラ
@@ -163,6 +217,16 @@ export default function WritingAssistant() {
       setIsTyping(false);
       setMessages(prev => [...prev, systemMessage]);
       
+      // システムプロンプトをメッセージヒストリーに追加
+      const messagesWithSystemPrompt = [
+        ...messages,
+        {
+          id: Date.now() - 1,
+          role: 'system',
+          content: selectedAssistant.systemPrompt,
+        }
+      ];
+      
       // ストリーミングAPIをインポートして使用
       console.log('%c🔌 ストリーミングセッション開始%c メッセージ長: ' + messageToSend.length + '文字', 
         'background:#6610f2; color:white; font-weight:bold; padding:2px 5px; border-radius:3px;', 
@@ -176,7 +240,7 @@ export default function WritingAssistant() {
         
         await streamChatMessage(
           messageToSend,
-          messages,
+          messagesWithSystemPrompt, // システムプロンプトを含めたメッセージ履歴を送信
           // チャンクごとにメッセージを更新
           (chunk) => {
             receivedChunks++;
@@ -300,37 +364,47 @@ export default function WritingAssistant() {
     }
   };
 
-  // テキストの保存
+  // テキストのダウンロード
   const handleSaveContent = () => {
     if (!exportContent.trim()) {
       toast({
-        title: "保存するコンテンツがありません",
-        description: "AIからの応答を受け取ってから保存してください。",
+        title: "ダウンロードするコンテンツがありません",
+        description: "AIからの応答を受け取ってからダウンロードしてください。",
         variant: "destructive",
       });
       return;
     }
 
-    // 新しい保存コンテンツを追加
-    const newContent = {
-      id: Date.now(),
-      title: `文書 ${savedContents.length + 1}`,
-      content: exportContent
-    };
+    // テキストファイルとしてダウンロード
+    const blob = new Blob([exportContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `AIテキスト_${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
     
-    setSavedContents(prev => [...prev, newContent]);
+    // クリーンアップ
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
     
     toast({
-      title: "コンテンツを保存しました",
-      description: "文章が正常に保存されました。",
+      title: "テキストファイルをダウンロードしました",
     });
   };
 
-  // コンテンツの削除
+  // 会話のクリア (削除ボタンと同じ機能)
   const handleDeleteContent = () => {
+    setMessages([{
+      id: Date.now(),
+      role: 'system',
+      content: 'AI文章作成アシスタントへようこそ。どのような文章を作成したいですか？',
+    }]);
     setExportContent('');
     toast({
-      title: "コンテンツをクリアしました",
+      title: "会話をクリアしました",
     });
   };
 
@@ -376,7 +450,7 @@ export default function WritingAssistant() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-full overflow-hidden">
 
       {/* ホバーエリア */}
       <div 
@@ -390,7 +464,7 @@ export default function WritingAssistant() {
       <div 
         ref={sidebarRef}
         className={`h-full border-r bg-gray-50 overflow-y-auto transition-all duration-300 ease-in-out ${
-          isSidebarCollapsed && !isHovering ? 'w-0 opacity-0' : 'w-64 opacity-100'
+          isSidebarCollapsed && !isHovering ? 'w-0 opacity-0' : 'w-72 opacity-100'
         }`}
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => {
@@ -405,56 +479,43 @@ export default function WritingAssistant() {
           }
         }}
       >
-        <div className="w-64">
+        <div className="w-72">
           <h2 className="text-lg font-semibold p-4 border-b flex justify-between items-center">
             <span>利用可能なアシスタント</span>
-            <button 
-              onClick={toggleSidebar}
-              className="p-1 rounded-full hover:bg-gray-200 transition-colors"
-              title={isSidebarCollapsed ? "サイドバーを固定する" : "サイドバーを閉じる"}
-            >
-              <ChevronRight className={`h-5 w-5 text-gray-500 transition-transform duration-300 ${
-                isSidebarCollapsed ? '' : 'transform rotate-180'
-              }`} />
-            </button>
+            <div className="flex items-center">
+              <Link href="/assistants" title="アシスタント管理" className="mr-2">
+                <Settings className="h-5 w-5 text-gray-500 hover:text-gray-700" />
+              </Link>
+              <button 
+                onClick={toggleSidebar}
+                className="p-1 rounded-full hover:bg-gray-200 transition-colors"
+                title={isSidebarCollapsed ? "サイドバーを固定する" : "サイドバーを閉じる"}
+              >
+                <ChevronRight className={`h-5 w-5 text-gray-500 transition-transform duration-300 ${
+                  isSidebarCollapsed ? '' : 'transform rotate-180'
+                }`} />
+              </button>
+            </div>
           </h2>
           <div className="p-3 space-y-2">
-            {ASSISTANTS.map(assistant => (
-              <Card 
-                key={assistant.id}
-                className={`p-3 cursor-pointer transition-all ${
-                  selectedAssistant.id === assistant.id ? 'border-[#3f51b5] bg-[#f0f2ff]' : ''
-                }`}
-                onClick={() => handleAssistantChange(assistant)}
-              >
-                <h3 className="font-medium">{assistant.name}</h3>
-                <p className="text-xs text-gray-600 mt-1">{assistant.description}</p>
-              </Card>
-            ))}
-          </div>
-          
-          <div className="p-4 border-t mt-4">
-            <h3 className="font-medium mb-2">保存済み文書</h3>
-            <div className="space-y-2 max-h-[300px] overflow-y-auto">
-              {savedContents.length === 0 ? (
-                <p className="text-sm text-gray-500">保存された文書はありません</p>
-              ) : (
-                savedContents.map(item => (
-                  <div key={item.id} className="p-2 text-sm hover:bg-gray-100 rounded">
-                    {item.title}
-                  </div>
-                ))
-              )}
-            </div>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-4 w-full"
-              onClick={handleClearConversation}
-            >
-              会話をクリア
-            </Button>
+            {isLoadingAssistants ? (
+              <div className="flex justify-center py-4">
+                <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full"></div>
+              </div>
+            ) : (
+              assistants.map(assistant => (
+                <Card 
+                  key={assistant.id}
+                  className={`p-3 cursor-pointer transition-all ${
+                    selectedAssistant.id === assistant.id ? 'border-[#3f51b5] bg-[#f0f2ff]' : ''
+                  }`}
+                  onClick={() => handleAssistantChange(assistant)}
+                >
+                  <h3 className="font-medium">{assistant.title || assistant.name}</h3>
+                  <p className="text-xs text-gray-600 mt-1">{assistant.description}</p>
+                </Card>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -489,14 +550,14 @@ export default function WritingAssistant() {
       </div>
 
       {/* 右側: データパネルと入力エリア */}
-      <div className="w-96 flex flex-col border-l">
-        <Tabs defaultValue="files" className="flex-1">
+      <div className="w-96 flex flex-col border-l max-h-full">
+        <Tabs defaultValue="files" className="flex flex-col h-[calc(100% - 230px)]">
           <TabsList className="w-full justify-start border-b">
             <TabsTrigger value="files">ファイル</TabsTrigger>
             <TabsTrigger value="preview">プレビュー</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="files" className="flex-1 p-4 overflow-y-auto">
+          <TabsContent value="files" className="p-4 overflow-y-auto flex-1">
             <div 
               className="border-2 border-dashed border-gray-300 rounded-md p-6 text-center cursor-pointer hover:bg-gray-50"
               onClick={() => fileInputRef.current?.click()}
@@ -529,7 +590,7 @@ export default function WritingAssistant() {
             )}
           </TabsContent>
           
-          <TabsContent value="preview" className="flex-1 p-4 overflow-y-auto">
+          <TabsContent value="preview" className="p-4 overflow-y-auto flex-1">
             {exportContent ? (
               <div className="whitespace-pre-line border rounded p-3">
                 {exportContent}
@@ -542,14 +603,14 @@ export default function WritingAssistant() {
           </TabsContent>
         </Tabs>
         
-        {/* 入力エリア */}
-        <div className="border-t p-4">
+        {/* 入力エリア - 高さ固定 */}
+        <div className="border-t p-4 h-[230px] flex flex-col">
           <Textarea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="AIに指示を送信..."
-            className="min-h-[100px] resize-none mb-2"
+            className="h-[150px] max-h-[150px] resize-none mb-2 overflow-y-auto flex-none"
             disabled={isTyping}
           />
           
@@ -558,10 +619,9 @@ export default function WritingAssistant() {
               onClick={handleDeleteContent}
               variant="outline"
               className="text-gray-700"
-              disabled={!exportContent}
             >
               <Trash2 className="h-4 w-4 mr-1" />
-              削除
+              会話をクリア
             </Button>
             
             <Button
@@ -571,7 +631,7 @@ export default function WritingAssistant() {
               disabled={!exportContent}
             >
               <Save className="h-4 w-4 mr-1" />
-              保存
+              ダウンロード
             </Button>
             
             <Button

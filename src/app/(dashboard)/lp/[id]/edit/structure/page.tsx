@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, LayoutGrid } from 'lucide-react';
+import { Loader2, LayoutGrid, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import { getLP } from '@/lib/api/lp';
+import { getLP, updateLP } from '@/lib/api/lp';
 
 import LPBuilderLayout from '@/components/lp-builder/LPBuilderLayout';
 import { LPBuilderProvider } from '@/components/lp-builder/LPBuilderContext';
@@ -17,6 +17,22 @@ export default function LPStructurePage({ params }: { params: { id: string } }) 
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState('ランディングページ作成');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [shouldAutoAnalyze, setShouldAutoAnalyze] = useState(false);
+  const [lpContent, setLpContent] = useState('');
+  const [triggerAnalyze, setTriggerAnalyze] = useState(false);
+
+  // URL パラメータをチェックして自動分析フラグを設定
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      const autoAnalyze = url.searchParams.get('autoAnalyze');
+      
+      if (autoAnalyze === 'true') {
+        console.log('自動構造分析が要求されました');
+        setShouldAutoAnalyze(true);
+      }
+    }
+  }, []);
 
   // LPデータの読み込み
   useEffect(() => {
@@ -25,6 +41,12 @@ export default function LPStructurePage({ params }: { params: { id: string } }) 
         setLoading(true);
         const data = await getLP(params.id);
         setTitle(data.title);
+        
+        // descriptionがある場合は保存
+        if (data.description) {
+          console.log('サーバーから取得したLP内容:', data.description);
+          setLpContent(data.description);
+        }
       } catch (error) {
         console.error('LPの読み込みに失敗しました:', error);
         toast({
@@ -40,12 +62,55 @@ export default function LPStructurePage({ params }: { params: { id: string } }) 
 
     fetchLP();
   }, [params.id, router, toast]);
+  
+  // データ読み込み完了後、自動分析フラグがtrueなら分析を開始
+  useEffect(() => {
+    if (!loading && shouldAutoAnalyze) {
+      console.log('ページ読み込み完了後、自動構造分析を開始します');
+      // 子コンポーネントの分析機能をトリガー
+      setTriggerAnalyze(true);
+      // URL からパラメータを消去（履歴を汚さないため）
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('autoAnalyze');
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
+  }, [loading, shouldAutoAnalyze]);
 
-  // 構造分析を実行
-  const handleAnalyze = () => {
-    console.log('構造ページ: 構造分析ボタンがクリックされました');
-    setIsAnalyzing(true);
-    // 実際の分析はStructureInterfaceコンポーネント内で行われる
+  // 構造データを保存 - StructureInterfaceのsaveStructureメソッドを呼び出すため参照を追加
+  const structureRef = React.useRef<{ saveStructure: () => Promise<any> }>(null);
+
+  const handleSave = async () => {
+    console.log('構造ページ: 保存ボタンがクリックされました');
+    
+    try {
+      // StructureInterfaceのsaveStructureメソッドを呼び出す
+      if (structureRef.current) {
+        await structureRef.current.saveStructure();
+        console.log('StructureInterfaceを通じて構造データを保存しました');
+      } else {
+        // フォールバック: 基本情報のみ保存
+        const result = await updateLP(params.id, { 
+          title: title,
+          description: lpContent
+        });
+        console.log('LPデータをサーバーに保存しました:', result);
+        
+        toast({
+          title: "保存完了",
+          description: "基本情報のみ保存されました (コンポーネント保存に失敗)",
+          variant: "warning",
+        });
+      }
+    } catch (error) {
+      console.error('保存エラー:', error);
+      toast({
+        title: "エラー",
+        description: "保存中にエラーが発生しました。",
+        variant: "destructive",
+      });
+    }
   };
 
   if (loading) {
@@ -57,33 +122,35 @@ export default function LPStructurePage({ params }: { params: { id: string } }) 
   }
 
   return (
-    <LPBuilderProvider initialLpId={params.id} initialTitle={title}>
+    <LPBuilderProvider 
+      initialLpId={params.id} 
+      initialTitle={title}
+      initialLpContent={lpContent}
+    >
       <LPBuilderLayout 
-        currentPhase="generate" 
+        currentPhase="structure" 
         lpId={params.id} 
         title={title} 
-        onPublish={handleAnalyze}
+        onPublish={handleSave}
         customPublishButton={
           <Button
-            onClick={handleAnalyze}
-            disabled={isAnalyzing}
+            onClick={handleSave}
             className="px-6"
           >
-            {isAnalyzing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                分析中...
-              </>
-            ) : (
-              <>
-                <LayoutGrid className="mr-2 h-4 w-4" />
-                AIで構造を作成
-              </>
-            )}
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              保存
+            </>
           </Button>
         }
       >
-        <StructureInterface lpId={params.id} onAnalyzeTriggered={isAnalyzing} />
+        <StructureInterface 
+          ref={structureRef}
+          lpId={params.id} 
+          onAnalyzeTriggered={triggerAnalyze}
+          initialContent={lpContent}
+          onAnalyzeComplete={() => setTriggerAnalyze(false)}
+        />
       </LPBuilderLayout>
     </LPBuilderProvider>
   );

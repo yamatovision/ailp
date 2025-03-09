@@ -1,5 +1,5 @@
 import { Section, SectionType } from './lp-generator';
-import { getCompletion } from '../../server/ai/claude-client';
+import { Claude } from '@/server/ai/claude-client';
 import { SYSTEM_PROMPTS, getSectionPrompt } from '../../server/ai/prompt-templates';
 
 /**
@@ -9,10 +9,13 @@ export interface SectionGenerationOptions {
   type: SectionType;
   content: string;
   customPrompt?: string;
+  designSystem?: any;       // デザインシステム情報
+  purpose?: string;         // セクションの目的
+  variant?: 'A' | 'B';      // バリアント (A/Bテスト用)
   styleOptions?: {
-    colorScheme?: string;  // 'light', 'dark', 'colorful', 'monochrome', 等
-    layoutStyle?: string;  // 'centered', 'asymmetric', 'grid', 'card', 等
-    fontStyle?: string;    // 'modern', 'classic', 'playful', 'serious', 等
+    colorScheme?: string;   // 'light', 'dark', 'colorful', 'monochrome', 等
+    layoutStyle?: string;   // 'centered', 'asymmetric', 'grid', 'card', 等
+    fontStyle?: string;     // 'modern', 'classic', 'playful', 'serious', 等
     animationLevel?: string; // 'none', 'subtle', 'moderate', 'dynamic', 等
   };
 }
@@ -25,9 +28,13 @@ export interface SectionGenerationResult {
   css?: string;
   js?: string;
   metadata?: {
-    usedComponents: string[];
-    imageCount: number;
-    estimatedLoadTime: string;
+    usedComponents?: string[];
+    imageCount?: number;
+    estimatedLoadTime?: string;
+    generatedAt?: Date;
+    variant?: 'A' | 'B';
+    type?: string;
+    purpose?: string;
   };
 }
 
@@ -41,8 +48,38 @@ export class SectionGenerator {
    */
   static async generateSection(options: SectionGenerationOptions): Promise<SectionGenerationResult> {
     try {
-      // カスタムプロンプトがある場合はそれを使用し、なければデフォルトプロンプトを取得
-      let prompt = options.customPrompt || getSectionPrompt(options.type, options.content);
+      // AIに設計を依頼するプロンプトを構築
+      let prompt;
+      
+      // カスタムプロンプトがある場合はそれを使用し、なければデザインシステムアプローチを使用
+      if (options.customPrompt) {
+        prompt = options.customPrompt;
+      } else if (options.designSystem) {
+        // デザインシステムベースの新しいプロンプト
+        prompt = `
+          Generate HTML with Tailwind CSS classes for a ${options.type} section of a landing page.
+          
+          Content: ${options.content}
+          Purpose: ${options.purpose || 'Convert visitors'}
+          Variant: ${options.variant || 'A'} ${options.variant === 'B' ? '(make this visually distinct from variant A)' : ''}
+          
+          Follow these requirements:
+          1. Use only Tailwind CSS classes for styling - do not create separate CSS files
+          2. Follow the design system provided
+          3. Create responsive layout that works well on both mobile and desktop
+          4. Focus on compelling visual hierarchy and user flow
+          5. Ensure accessibility best practices
+          6. Use semantic HTML tags appropriately
+          7. Do not include <html>, <head>, or <body> tags - only the section content
+          
+          For interactivity, use simple inline onclick handlers if needed.
+          
+          Return clean, production-ready HTML with Tailwind classes.
+        `;
+      } else {
+        // 従来のプロンプト取得方法
+        prompt = getSectionPrompt(options.type, options.content);
+      }
       
       // スタイルオプションがある場合は追加
       if (options.styleOptions) {
@@ -57,24 +94,39 @@ ${styleOptions.animationLevel ? `- アニメーションレベル: ${styleOption
         prompt += `\n${stylePrompt}`;
       }
       
+      // AIシステムプロンプト
+      const systemPrompt = options.designSystem 
+        ? `You are an expert front-end developer specializing in creating high-converting landing pages.
+           You have deep expertise in Tailwind CSS and responsive design.
+           Your task is to generate high-quality HTML with Tailwind CSS classes for landing page sections.
+           DO NOT include any explanations or comments in your response - only return the clean HTML code.`
+        : SYSTEM_PROMPTS.SECTION_GENERATOR;
+      
       // AIモデルにプロンプトを送信
-      const response = await getCompletion(prompt, {
-        systemPrompt: SYSTEM_PROMPTS.SECTION_GENERATOR,
+      const response = await Claude.sendMessage({
+        message: prompt,
+        system: systemPrompt,
         temperature: 0.7,
       });
       
       // HTMLコードブロックを抽出
-      const htmlMatch = response.match(/```html\s*([\s\S]*?)\s*```/) || 
-                        response.match(/```\s*([\s\S]*?)\s*```/) || 
-                        [null, response];
+      const htmlMatch = response.content.match(/```html\s*([\s\S]*?)\s*```/) || 
+                        response.content.match(/```\s*([\s\S]*?)\s*```/) || 
+                        [null, response.content];
+      
+      const html = htmlMatch[1] ? htmlMatch[1].trim() : response.content.trim();
       
       // 結果を返す
       return {
-        html: htmlMatch[1].trim(),
+        html,
         metadata: {
-          usedComponents: extractComponentNames(htmlMatch[1]),
-          imageCount: countImageTags(htmlMatch[1]),
-          estimatedLoadTime: estimateLoadTime(htmlMatch[1]),
+          usedComponents: extractComponentNames(html),
+          imageCount: countImageTags(html),
+          estimatedLoadTime: estimateLoadTime(html),
+          generatedAt: new Date(),
+          variant: options.variant || 'A',
+          type: options.type,
+          purpose: options.purpose
         }
       };
     } catch (error) {
@@ -89,8 +141,9 @@ ${styleOptions.animationLevel ? `- アニメーションレベル: ${styleOption
   static async improveSection(
     existingHtml: string, 
     improvementInstructions: string,
-    sectionType: SectionType
-  ): Promise<string> {
+    sectionType: SectionType,
+    designSystem?: any
+  ): Promise<SectionGenerationResult> {
     try {
       const prompt = `以下のHTMLセクションを改善してください。
 
@@ -104,20 +157,30 @@ ${existingHtml}
 改善の指示:
 ${improvementInstructions}
 
-Tailwind CSSクラスを使用し、レスポンシブ設計を維持してください。
+${designSystem ? `このデザインシステムに準拠してください。` : ``}
+Tailwind CSSクラスのみを使用し、レスポンシブ設計を維持してください。
 改善されたHTMLコード全体を返してください。`;
 
-      const response = await getCompletion(prompt, {
-        systemPrompt: SYSTEM_PROMPTS.IMPROVEMENT_ADVISOR,
+      const response = await Claude.sendMessage({
+        message: prompt,
+        system: SYSTEM_PROMPTS.IMPROVEMENT_ADVISOR,
         temperature: 0.7,
       });
       
       // HTMLコードブロックを抽出
-      const htmlMatch = response.match(/```html\s*([\s\S]*?)\s*```/) || 
-                        response.match(/```\s*([\s\S]*?)\s*```/) || 
-                        [null, response];
+      const htmlMatch = response.content.match(/```html\s*([\s\S]*?)\s*```/) || 
+                        response.content.match(/```\s*([\s\S]*?)\s*```/) || 
+                        [null, response.content];
       
-      return htmlMatch[1].trim();
+      const html = htmlMatch[1] ? htmlMatch[1].trim() : response.content.trim();
+      
+      return {
+        html,
+        metadata: {
+          generatedAt: new Date(),
+          type: sectionType
+        }
+      };
     } catch (error) {
       console.error('Error improving section:', error);
       throw error;
@@ -127,49 +190,62 @@ Tailwind CSSクラスを使用し、レスポンシブ設計を維持してく�
   /**
    * 既存のセクションに基づいてA/Bバリアントを生成
    */
-  static async generateVariant(
-    originalHtml: string, 
-    sectionType: SectionType,
-    variantInstructions?: string
-  ): Promise<string> {
+  static async generateVariantB(
+    options: {
+      originalHtml: string;     // バリアントAのHTML
+      type: string;             // セクションタイプ
+      content: string;          // セクションの主な内容
+      designSystem?: any;       // デザインシステム
+      differentiation?: string; // バリアントBの差別化ポイント
+    }
+  ): Promise<SectionGenerationResult> {
     try {
       // バリアント生成のためのプロンプト
-      let prompt = `以下はLPの${sectionType}セクションの元のHTMLコードです。このセクションのA/Bテスト用バリアントを生成してください。
+      let prompt = `
+        Create an alternative design (Variant B) for this ${options.type} section.
+        
+        Original HTML (Variant A):
+        \`\`\`html
+        ${options.originalHtml}
+        \`\`\`
+        
+        Content: ${options.content}
+        Differentiation focus: ${options.differentiation || 'Visual design, layout, and emphasis'}
+        
+        Requirements:
+        1. Create a visually distinct design from Variant A using Tailwind CSS classes
+        2. Maintain the same core content and functionality
+        3. Focus on a different approach to achieve the same goal
+        4. This variant should test a different hypothesis about what might convert better
+        5. Do not include <html>, <head>, or <body> tags - only the section content
+        
+        Create clean HTML with Tailwind classes only.
+      `;
 
-元のHTML:
-\`\`\`html
-${originalHtml}
-\`\`\`
-
-A/Bテストで効果的な違いを持つバリアントを生成してください。`;
-
-      // 追加の指示がある場合は含める
-      if (variantInstructions) {
-        prompt += `\n\n具体的な指示：\n${variantInstructions}`;
-      } else {
-        prompt += `\n\n以下の点を変更検討してください：
-1. ヘッドラインのメッセージング
-2. 視覚的要素のレイアウト
-3. CTAボタンの文言やデザイン
-4. コンテンツの提示方法`;
-      }
-
-      prompt += `\n\n元のセクションとは明確に異なる、しかし同じ目的を達成できるバリアントHTMLコードを生成してください。
-生成したコードはHTMLブロックとして返してください。`;
-
-      const response = await getCompletion(prompt, {
-        systemPrompt: SYSTEM_PROMPTS.VARIANT_GENERATOR,
-        temperature: 0.8,
+      const response = await Claude.sendMessage({
+        message: prompt,
+        system: "You are an A/B testing specialist with expertise in creating effective variant designs. Your goal is to create meaningfully different alternatives that test specific hypotheses about user behavior and conversion tactics.",
+        temperature: 0.7,
       });
       
       // HTMLコードブロックを抽出
-      const htmlMatch = response.match(/```html\s*([\s\S]*?)\s*```/) || 
-                        response.match(/```\s*([\s\S]*?)\s*```/) || 
-                        [null, response];
+      const htmlMatch = response.content.match(/```html\s*([\s\S]*?)\s*```/) || 
+                        response.content.match(/```\s*([\s\S]*?)\s*```/) || 
+                        [null, response.content];
       
-      return htmlMatch[1].trim();
+      const html = htmlMatch[1] ? htmlMatch[1].trim() : response.content.trim();
+      
+      return {
+        html,
+        metadata: {
+          generatedAt: new Date(),
+          variant: 'B',
+          type: options.type,
+          differentiation: options.differentiation || 'Visual design'
+        }
+      };
     } catch (error) {
-      console.error(`Error generating variant for section type ${sectionType}:`, error);
+      console.error(`Error generating variant for section type ${options.type}:`, error);
       throw error;
     }
   }

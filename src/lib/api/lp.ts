@@ -399,3 +399,153 @@ export async function analyzeStructure(data: {
     throw new Error('LP構造の分析に失敗しました');
   }
 }
+
+// デザインシステム保存API
+export async function saveDesignSystem(lpId: string, data: {
+  designSystem: any;
+  designStyle: string;
+}): Promise<{ success: boolean; message: string; lp: any }> {
+  try {
+    console.log('saveDesignSystem: API呼び出し開始', { lpId, designStyle: data.designStyle });
+    
+    // デザインシステムが大きすぎる場合にログに出力しないようにする
+    const isBigDesignSystem = JSON.stringify(data.designSystem).length > 1000;
+    
+    const url = `/api/lp/${lpId}/design-system`;
+    const result = await fetchAPI<{ success: boolean; message: string; lp: any }>(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    
+    console.log('saveDesignSystem: API呼び出し成功', isBigDesignSystem ? '(デザインシステムデータは大きいため非表示)' : result);
+    
+    // キャッシュを更新（ローカルストレージにも保存）
+    if (typeof window !== 'undefined') {
+      try {
+        // リクエストごとに新しいキャッシュIDを生成
+        const cacheId = `design_system_cache_${Date.now()}`;
+        localStorage.setItem(`design_system_latest_${lpId}`, cacheId);
+        localStorage.setItem(cacheId, JSON.stringify(data.designSystem));
+        console.log('デザインシステムをキャッシュに保存しました');
+      } catch (e) {
+        console.error('キャッシュ保存エラー:', e);
+      }
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('saveDesignSystem: API呼び出しエラー:', error);
+    
+    // エラーの詳細情報を確認
+    let errorMessage = 'デザインシステムの保存に失敗しました';
+    if (error instanceof Error) {
+      errorMessage += `: ${error.message}`;
+    }
+    
+    // オフライン時やネットワークエラー時の対策（リトライロジック）
+    if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+      // ネットワークエラーの場合、ローカルストレージに一時保存
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(`design_system_pending_${lpId}`, JSON.stringify({
+            designSystem: data.designSystem,
+            designStyle: data.designStyle,
+            timestamp: Date.now()
+          }));
+          console.warn('ネットワークエラー: デザインシステムを一時保存しました。オンライン時に再試行します。');
+        } catch (e) {
+          console.error('一時保存エラー:', e);
+        }
+      }
+    }
+    
+    throw new Error(errorMessage);
+  }
+}
+
+// デザインシステム取得API（キャッシュ戦略付き）
+export async function getDesignSystem(lpId: string): Promise<{ designSystem: any; designStyle: string }> {
+  // 先にローカルストレージから取得を試みる（最新のキャッシュがあれば）
+  if (typeof window !== 'undefined') {
+    try {
+      const latestCacheId = localStorage.getItem(`design_system_latest_${lpId}`);
+      if (latestCacheId) {
+        const cachedData = localStorage.getItem(latestCacheId);
+        if (cachedData) {
+          const designSystem = JSON.parse(cachedData);
+          const designStyle = localStorage.getItem(`design_system_style_${lpId}`) || 'corporate';
+          console.log('キャッシュからデザインシステムを取得しました');
+          return { designSystem, designStyle };
+        }
+      }
+      
+      // 保留中のデータがあるか確認（オフライン時に保存された可能性）
+      const pendingData = localStorage.getItem(`design_system_pending_${lpId}`);
+      if (pendingData) {
+        const { designSystem, designStyle, timestamp } = JSON.parse(pendingData);
+        const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+        
+        // 2時間以内のデータなら使用
+        if (timestamp > twoHoursAgo) {
+          console.log('保留中のデザインシステムデータを取得しました');
+          // 保留データを使用しつつ、APIからも最新データを取得（バックグラウンドで）
+          setTimeout(() => {
+            fetchFromAPI().catch(e => console.error('バックグラウンド更新エラー:', e));
+          }, 0);
+          return { designSystem, designStyle };
+        }
+      }
+    } catch (e) {
+      console.error('キャッシュ取得エラー:', e);
+    }
+  }
+  
+  // APIから取得
+  return await fetchFromAPI();
+  
+  // APIからデータを取得する内部関数
+  async function fetchFromAPI(): Promise<{ designSystem: any; designStyle: string }> {
+    try {
+      console.log('getDesignSystem: API呼び出し開始', { lpId });
+      
+      const url = `/api/lp/${lpId}/design-system`;
+      const result = await fetchAPI<{ designSystem: any; designStyle: string }>(url, {
+        method: 'GET',
+      });
+      
+      console.log('getDesignSystem: API呼び出し成功');
+      
+      // キャッシュを更新
+      if (typeof window !== 'undefined' && result.designSystem) {
+        try {
+          // 新しいキャッシュIDを生成
+          const cacheId = `design_system_cache_${Date.now()}`;
+          localStorage.setItem(`design_system_latest_${lpId}`, cacheId);
+          localStorage.setItem(cacheId, JSON.stringify(result.designSystem));
+          localStorage.setItem(`design_system_style_${lpId}`, result.designStyle);
+          console.log('デザインシステムをキャッシュに保存しました');
+          
+          // 保留中のデータがあれば削除
+          localStorage.removeItem(`design_system_pending_${lpId}`);
+        } catch (e) {
+          console.error('キャッシュ保存エラー:', e);
+        }
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('getDesignSystem: API呼び出しエラー:', error);
+      
+      // エラーの詳細情報を確認
+      let errorMessage = 'デザインシステムの取得に失敗しました';
+      if (error instanceof Error) {
+        errorMessage += `: ${error.message}`;
+      }
+      
+      throw new Error(errorMessage);
+    }
+  }
+}

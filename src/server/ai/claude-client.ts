@@ -15,6 +15,30 @@ const anthropic = new Anthropic({
 // モデル名を環境変数から取得（デフォルトはClaude 3.7 Sonnet）
 export const MODEL_NAME = process.env.CLAUDE_API_MODEL || 'claude-3-7-sonnet-20250219';
 
+// Claudeクラスを追加 - design-system-generator.tsで使用
+export class Claude {
+  static async sendMessage({ message, system, temperature = 0.7 }) {
+    if (!apiKey) {
+      throw new Error('CLAUDE_API_KEY環境変数が設定されていません。AI機能を使用するには、この環境変数が必要です。');
+    }
+
+    try {
+      const response = await anthropic.messages.create({
+        model: MODEL_NAME,
+        system: system || 'You are an expert LP designer and web developer.',
+        messages: [{ role: 'user', content: message }],
+        temperature,
+        max_tokens: 64000,
+      });
+
+      return { content: response.content[0].text };
+    } catch (error) {
+      console.error('Anthropic API エラー:', error);
+      throw new Error(`Anthropic API エラー: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+}
+
 // ストリーミングレスポンスを処理する関数
 export async function streamCompletion(
   prompt: string,
@@ -24,7 +48,7 @@ export async function streamCompletion(
     systemPrompt?: string;
   } = {}
 ) {
-  const { temperature = 0.7, maxTokens = 8192, systemPrompt = '' } = options;
+  const { temperature = 0.7, maxTokens = 64000, systemPrompt = '' } = options;
 
   const stream = await anthropic.messages.create({
     model: MODEL_NAME,
@@ -47,7 +71,7 @@ export async function getCompletion(
     systemPrompt?: string;
   } = {}
 ) {
-  const { temperature = 0.7, maxTokens = 8192, systemPrompt = '' } = options;
+  const { temperature = 0.7, maxTokens = 64000, systemPrompt = '' } = options;
 
   if (!process.env.CLAUDE_API_KEY) {
     throw new Error('CLAUDE_API_KEY環境変数が設定されていません。AI機能を使用するには、この環境変数が必要です。');
@@ -83,7 +107,7 @@ export async function getBatchCompletions(
     maxTokens?: number;
   } = {}
 ) {
-  const { temperature = 0.7, maxTokens = 8192 } = options;
+  const { temperature = 0.7, maxTokens = 64000 } = options;
 
   // すべてのプロミスを作成
   const promises = prompts.map(async ({ id, prompt, systemPrompt }) => {

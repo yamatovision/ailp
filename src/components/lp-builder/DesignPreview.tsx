@@ -18,61 +18,10 @@ interface Section {
   active: string;
 }
 
-// モックデータ - セクション構造
-const mockSections: Section[] = [
-  {
-    id: 'hero',
-    name: 'ヒーローセクション',
-    status: 'completed',
-    variants: ['A', 'B'],
-    active: 'A'
-  },
-  {
-    id: 'problems',
-    name: '課題認識セクション',
-    status: 'completed',
-    variants: ['A', 'B'],
-    active: 'A'
-  },
-  {
-    id: 'solution',
-    name: '解決策セクション',
-    status: 'completed',
-    variants: ['A'],
-    active: 'A'
-  },
-  {
-    id: 'benefits',
-    name: 'ベネフィットセクション',
-    status: 'completed',
-    variants: ['A'],
-    active: 'A'
-  },
-  {
-    id: 'testimonials',
-    name: '受講者の声セクション',
-    status: 'completed',
-    variants: ['A'],
-    active: 'A'
-  },
-  {
-    id: 'pricing',
-    name: '料金・申込セクション',
-    status: 'completed',
-    variants: ['A'],
-    active: 'A'
-  },
-  {
-    id: 'faq',
-    name: 'FAQセクション',
-    status: 'completed',
-    variants: ['A'],
-    active: 'A'
-  }
-];
+// セクションデータは実際のデータベースから取得するため、モックデータは削除
 
-// モックデータ - HTMLプレビュー
-const mockHtmlA = `
+// デフォルトのHTMLテンプレート - APIから実際のデータで置き換え
+const defaultHtmlTemplate = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -87,125 +36,107 @@ const mockHtmlA = `
       color: #333;
       line-height: 1.6;
     }
-    .hero {
-      background-color: #2a4365;
-      color: white;
-      padding: 60px 20px;
-      text-align: center;
-    }
-    .hero h1 {
-      font-size: 2.5rem;
-      margin-bottom: 20px;
-    }
-    .hero p {
-      font-size: 1.2rem;
-      max-width: 700px;
-      margin: 0 auto 30px;
-    }
-    .cta-button {
-      display: inline-block;
-      background-color: #48bb78;
-      color: white;
-      padding: 12px 24px;
-      border-radius: 5px;
-      text-decoration: none;
-      font-weight: bold;
-      font-size: 1.1rem;
-      transition: background-color 0.3s;
-    }
   </style>
 </head>
 <body>
-  <section class="hero">
-    <div class="container">
-      <h1>マネジメントスキルを磨き、真のリーダーへ</h1>
-      <p>15年以上の経験を持つ元人事責任者が教える3ヶ月間の実践的コーチングプログラム。効率的なチームマネジメント、的確な意思決定、時間管理まで、すぐに実践できるスキルを習得。</p>
-      <a href="#pricing" class="cta-button">詳細を見る</a>
-    </div>
-  </section>
+  <div style="padding: 30px; text-align: center; background-color: #f0f0f0;">
+    <h2>セクションのHTMLを生成中...</h2>
+    <p>このセクションのHTMLコンテンツはAPIから取得する必要があります。</p>
+  </div>
 </body>
 </html>
 `;
 
-// モックデータ - HTMLプレビュー（バリアントB）
-const mockHtmlB = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ランディングページ</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      margin: 0;
-      padding: 0;
-      color: #333;
-      line-height: 1.6;
-    }
-    .hero {
-      background: linear-gradient(135deg, #1a365d 0%, #2a4365 100%);
-      color: white;
-      padding: 80px 20px;
-      text-align: center;
-    }
-    .hero h1 {
-      font-size: 2.7rem;
-      margin-bottom: 25px;
-      font-weight: 700;
-    }
-    .hero p {
-      font-size: 1.25rem;
-      max-width: 700px;
-      margin: 0 auto 35px;
-      line-height: 1.7;
-    }
-    .cta-button {
-      display: inline-block;
-      background-color: #ed8936;
-      color: white;
-      padding: 14px 28px;
-      border-radius: 30px;
-      text-decoration: none;
-      font-weight: bold;
-      font-size: 1.15rem;
-      transition: all 0.3s;
-      box-shadow: 0 4px 12px rgba(237, 137, 54, 0.4);
-    }
-  </style>
-</head>
-<body>
-  <section class="hero">
-    <div class="container">
-      <h1>マネジメントの壁を突破し、<br>キャリアを加速させる</h1>
-      <p>現場で15年以上の実績を持つ元人事責任者があなたの成長を徹底サポート。3ヶ月間で200人以上が実証した効果的なリーダーシップ開発プログラム。</p>
-      <a href="#pricing" class="cta-button">無料カウンセリングに申し込む</a>
-    </div>
-  </section>
-</body>
-</html>
-`;
+// バリアントBも同様にAPIから取得
 
 type DesignPreviewProps = {
   onComplete: () => void;
 };
 
 export default function DesignPreview({ onComplete }: DesignPreviewProps) {
-  const [selectedSection, setSelectedSection] = useState('hero');
+  const [sections, setSections] = useState<Section[]>([]);
+  const [selectedSection, setSelectedSection] = useState('');
   const [activeVariant, setActiveVariant] = useState('A');
   const [previewMode, setPreviewMode] = useState('desktop');
   const [modificationPrompt, setModificationPrompt] = useState('');
   const [isModifying, setIsModifying] = useState(false);
   const [showVariantDialog, setShowVariantDialog] = useState(false);
+  const [sectionHtmlA, setSectionHtmlA] = useState<string>(defaultHtmlTemplate);
+  const [sectionHtmlB, setSectionHtmlB] = useState<string>(defaultHtmlTemplate);
+  const [isLoadingHtml, setIsLoadingHtml] = useState<boolean>(false);
+
+  // コンポーネントマウント時にAPIからセクションデータを取得
+  useEffect(() => {
+    const fetchSections = async () => {
+      try {
+        // 仮のAPIエンドポイント - 実際の実装ではこれを正しいものに置き換える
+        const response = await fetch('/api/lp/current/components');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.components && data.components.length > 0) {
+            const formattedSections = data.components.map((comp: any) => ({
+              id: comp.id,
+              name: comp.name || `${comp.componentType}セクション`,
+              status: 'completed',
+              variants: comp.variants ? ['A', 'B'] : ['A'],
+              active: 'A'
+            }));
+            
+            setSections(formattedSections);
+            
+            // 最初のセクションを選択
+            if (formattedSections.length > 0) {
+              setSelectedSection(formattedSections[0].id);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching sections:', error);
+      }
+    };
+    
+    fetchSections();
+  }, []);
 
   // セクション選択ハンドラ
   const handleSectionSelect = (id: string) => {
     setSelectedSection(id);
     
     // セクションを変更したら、そのセクションのアクティブバリアントに合わせる
-    const section = mockSections.find(s => s.id === id);
+    const section = sections.find(s => s.id === id);
     if (section) {
       setActiveVariant(section.active);
+      fetchSectionHtml(id);
+    }
+  };
+  
+  // APIからセクションHTMLを取得
+  const fetchSectionHtml = async (sectionId: string) => {
+    setIsLoadingHtml(true);
+    try {
+      const response = await fetch(`/api/lp/current/components/${sectionId}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.html) {
+          setSectionHtmlA(data.html);
+        }
+        
+        // バリアントBが存在すれば取得
+        const currentSection = sections.find(s => s.id === sectionId);
+        if (currentSection?.variants.includes('B')) {
+          const variantResponse = await fetch(`/api/lp/current/components/${sectionId}/variants`);
+          if (variantResponse.ok) {
+            const variantData = await variantResponse.json();
+            if (variantData.variants && variantData.variants.length > 0) {
+              setSectionHtmlB(variantData.variants[0].html);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch section HTML:', error);
+    } finally {
+      setIsLoadingHtml(false);
     }
   };
 
@@ -249,10 +180,17 @@ export default function DesignPreview({ onComplete }: DesignPreviewProps) {
 
   // プレビューするHTMLの取得
   const getPreviewHtml = () => {
+    if (isLoadingHtml) {
+      return defaultHtmlTemplate.replace(
+        '<h2>セクションのHTMLを生成中...</h2>',
+        '<h2>セクションのHTMLを読み込み中...</h2>'
+      );
+    }
+    
     if (activeVariant === 'A') {
-      return mockHtmlA;
+      return sectionHtmlA || defaultHtmlTemplate;
     } else {
-      return mockHtmlB;
+      return sectionHtmlB || defaultHtmlTemplate;
     }
   };
 
@@ -282,7 +220,7 @@ export default function DesignPreview({ onComplete }: DesignPreviewProps) {
         <div className="p-4 border-b bg-white flex justify-between items-center">
           <div className="flex items-center">
             <div className="flex space-x-2 mr-4">
-              {mockSections.map((section) => (
+              {sections.map((section) => (
                 <button
                   key={section.id}
                   className={`px-3 py-1.5 text-sm rounded-md flex items-center ${
@@ -334,7 +272,7 @@ export default function DesignPreview({ onComplete }: DesignPreviewProps) {
                 <div className="w-2 h-2 rounded-full bg-green-500"></div>
               </div>
               <p className="text-xs text-center flex-1">
-                {mockSections.find(s => s.id === selectedSection)?.name} - バリアント{activeVariant}
+                {sections.find(s => s.id === selectedSection)?.name || 'セクション未選択'} - バリアント{activeVariant}
               </p>
             </div>
             <iframe
@@ -362,7 +300,7 @@ export default function DesignPreview({ onComplete }: DesignPreviewProps) {
                   バリアントA
                 </Button>
                 
-                {mockSections.find(s => s.id === selectedSection)?.variants.includes('B') ? (
+                {sections.find(s => s.id === selectedSection)?.variants.includes('B') ? (
                   <Button
                     variant={activeVariant === 'B' ? 'default' : 'outline'}
                     onClick={() => handleVariantSelect('B')}

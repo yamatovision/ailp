@@ -12,6 +12,7 @@ interface LPBuildState {
   lpContent: string;
   designStyle: string;
   designDescription: string;
+  designSystem?: any; // デザインシステム情報を追加
   sections?: any[]; // セクション情報を追加
   isComplete: {
     generate: boolean;
@@ -25,6 +26,7 @@ interface LPBuilderContextType {
   state: LPBuildState;
   setChatMessages: (messages: Message[]) => void;
   setLPContent: (content: string, style: string, description: string) => void;
+  setDesignSystem: (designSystem: any) => void; // デザインシステム設定関数を追加
   setSections: (sections: any[]) => void; // セクション設定関数を追加
   setTitle: (title: string) => void;  // タイトル設定関数を追加
   completePhase: (phase: 'generate' | 'structure' | 'design') => void;
@@ -95,6 +97,40 @@ export function LPBuilderProvider({
     }));
   };
   
+  // デザインシステムを設定
+  const setDesignSystem = (designSystem: any) => {
+    setState(prev => ({
+      ...prev,
+      designSystem
+    }));
+    
+    // LocalStorageにも保存（LPIDが存在する場合）
+    if (typeof window !== 'undefined' && state.lpId) {
+      try {
+        // 最新のキャッシュIDを生成
+        const cacheId = `design_system_cache_${Date.now()}`;
+        localStorage.setItem(`design_system_latest_${state.lpId}`, cacheId);
+        localStorage.setItem(cacheId, JSON.stringify(designSystem));
+        
+        // 旧形式の互換性のために残す
+        localStorage.setItem(`design_system_full_${state.lpId}`, JSON.stringify(designSystem));
+        
+        console.log('デザインシステムをLocalStorageに保存:', state.lpId);
+        
+        // 他のコンポーネントに変更を通知するためのカスタムイベントを発行
+        const event = new CustomEvent('designSystemUpdated', { 
+          detail: { 
+            lpId: state.lpId,
+            designSystem
+          } 
+        });
+        window.dispatchEvent(event);
+      } catch (e) {
+        console.error('デザインシステムの保存に失敗:', e);
+      }
+    }
+  };
+  
   // タイトルを設定
   const setTitle = (title: string) => {
     setState(prev => ({
@@ -123,19 +159,35 @@ export function LPBuilderProvider({
     });
   };
   
-  // ローカルストレージへの保存/復元
+  // ローカルストレージへの保存/復元 - 防止策としてデバウンスとクリティカルな変更のみ保存
   useEffect(() => {
+    // ローカルストレージに保存するための条件
     if (typeof window !== 'undefined' && state.lpId) {
-      try {
-        // ディープコピーして状態を保存
-        const stateCopy = JSON.parse(JSON.stringify(state));
-        localStorage.setItem(`lp_builder_${state.lpId}`, JSON.stringify(stateCopy));
-        console.log('LPBuilderContext - State saved to localStorage');
-      } catch (error) {
-        console.error('LPBuilderContext - Error saving state to localStorage:', error);
-      }
+      // クリティカルな変更がない場合はスキップ
+      // 保存によるちらつきを防ぐため、コンテンツの変更など重要な場合のみ保存する
+      const saveTimeout = setTimeout(() => {
+        try {
+          // LocalStorageにはタイトルと基本設定だけを保存
+          // セクションや詳細データはデータベースに保存されているため冗長
+          const minimalState = {
+            lpId: state.lpId,
+            title: state.title,
+            lpContent: state.lpContent,
+            designStyle: state.designStyle,
+            designDescription: state.designDescription,
+            isComplete: state.isComplete
+          };
+          
+          localStorage.setItem(`lp_builder_${state.lpId}`, JSON.stringify(minimalState));
+          console.log('LPBuilderContext - Minimal state saved to localStorage');
+        } catch (error) {
+          console.error('LPBuilderContext - Error saving state to localStorage:', error);
+        }
+      }, 1000); // 1秒のデバウンス
+      
+      return () => clearTimeout(saveTimeout);
     }
-  }, [state]);
+  }, [state.title, state.lpContent, state.designStyle, state.designDescription, state.isComplete]);
   
   useEffect(() => {
     if (typeof window !== 'undefined' && state.lpId) {
@@ -205,6 +257,7 @@ export function LPBuilderProvider({
       state, 
       setChatMessages, 
       setLPContent,
+      setDesignSystem,
       setSections,
       setTitle, 
       completePhase, 

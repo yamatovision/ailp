@@ -118,11 +118,6 @@ const DirectoryTree = ({
                               <Badge variant="outline" className="text-xs">
                                 {section.type}
                               </Badge>
-                              {section.isTestable && (
-                                <Badge variant="secondary" className="text-xs">
-                                  A/Bテスト対象
-                                </Badge>
-                              )}
                               <Badge variant="outline" className="text-xs bg-slate-100">
                                 {section.position}
                               </Badge>
@@ -223,19 +218,6 @@ const DirectoryTree = ({
                                     value={section.position}
                                     onChange={(e) => onEditSection(section.id, 'position', parseInt(e.target.value))}
                                   />
-                                </div>
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="checkbox"
-                                    id={`testable-${section.id}`}
-                                    checked={section.isTestable}
-                                    onChange={(e) => onEditSection(section.id, 'isTestable', e.target.checked)}
-                                  />
-                                  <label htmlFor={`testable-${section.id}`} className="text-sm font-medium">
-                                    A/Bテスト対象とする
-                                  </label>
                                 </div>
                               </div>
                               <div className="pt-2 text-xs text-muted-foreground border-t mt-2">

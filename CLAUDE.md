@@ -143,14 +143,15 @@ For **DASHBOARD-01**:
 このプロジェクトではSupabaseのPostgreSQLデータベースを使用しています。接続時には以下の点に注意してください：
 
 1. **パスワードの扱い**: パスワードに特殊文字（`@`など）が含まれる場合、環境変数では URLエンコードしない形式で記述する必要があります。
-   - 正しい例: `Mikoto@123`
-   - 間違った例: `Mikoto%40123` (URLエンコードされている)
+   - 正しい例: `Password@123`
+   - 間違った例: `Password%40123` (URLエンコードされている)
 
 2. **接続種類別のURL形式と推奨設定**:
    - **トランザクションプーラー接続** (最も推奨): 
      ```
      DATABASE_URL=postgresql://postgres.qdjikxdmpctkfpvkqaof:PASSWORD@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres
      ```
+     **重要**: `?pgbouncer=true` のようなパラメータを追加しないでください。Prismaとの互換性に問題が生じます。
    - **セッションプーラー接続**: 
      ```
      DATABASE_URL=postgresql://postgres.qdjikxdmpctkfpvkqaof:PASSWORD@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres
@@ -168,7 +169,7 @@ For **DASHBOARD-01**:
 
 4. **必須の環境変数設定**:
    ```
-   # プールされた接続をDATABASE_URLとして使用
+   # プールされた接続をDATABASE_URLとして使用（パラメータなしで設定）
    DATABASE_URL=postgresql://postgres.qdjikxdmpctkfpvkqaof:PASSWORD@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres
    # 直接接続
    DIRECT_URL=postgresql://postgres:PASSWORD@db.qdjikxdmpctkfpvkqaof.supabase.co:5432/postgres
@@ -176,7 +177,32 @@ For **DASHBOARD-01**:
    PRISMA_CLIENT_NO_PREPARED_STATEMENTS=true
    ```
 
-5. **接続テスト**: データベース接続に問題がある場合は以下のテストスクリプトを使用してください：
+5. **Prismaクライアントの正しい初期化方法**:
+   ```typescript
+   // src/lib/db/prisma.ts
+   import { PrismaClient } from '@prisma/client';
+
+   const globalForPrisma = global as unknown as { prisma: PrismaClient };
+
+   // データベース接続設定を明示的に指定
+   const prismaClientSingleton = () => {
+     return new PrismaClient({
+       log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+       datasources: {
+         db: {
+           url: process.env.DATABASE_URL
+         }
+       }
+     });
+   };
+
+   export const prisma = globalForPrisma.prisma || prismaClientSingleton();
+
+   if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+   ```
+   **重要**: `datasources.db.url`を明示的に指定すると、接続エラーを回避できます。
+
+6. **接続テスト**: データベース接続に問題がある場合は以下のテストスクリプトを使用してください：
    ```bash
    # 詳細な接続診断
    node temp/detailed-connection-diagnostics.js
@@ -185,10 +211,12 @@ For **DASHBOARD-01**:
    node temp/test-db-connection-v2.js
    ```
 
-6. **接続エラーの一般的な解決方法**:
+7. **接続エラーの一般的な解決方法**:
    - DATABASE_URLをトランザクションプーラー（ポート6543）に変更する
+   - 接続文字列に `?pgbouncer=true` などのパラメータが含まれている場合は削除する
    - 必ずDIRECT_URLも設定する（Prismaマイグレーション用）
    - PRISMA_CLIENT_NO_PREPARED_STATEMENTS=trueを設定する
+   - Prismaクライアントで`datasources.db.url`を明示的に指定する
    - パスワード内の特殊文字が正しく扱われているか確認する
    - 接続プールの最大接続数を確認する
 
@@ -201,9 +229,10 @@ npx prisma db push
 
 ### トラブルシューティング
 
-- **接続エラー**: 「Can't reach database server」エラーが発生した場合は、まず接続文字列とパスワードの形式を確認してください。
-- **MaxClientsInSessionMode**: セッションプーラーの最大接続数に達した場合は、一部の接続を閉じるか、少し時間をおいて再試行してください。
+- **接続エラー**: 「Can't reach database server」エラーが発生した場合は、まず接続文字列とパスワードの形式を確認してください。URL内のパラメータ（`?pgbouncer=true`など）は削除してください。
+- **MaxClientsInSessionMode**: セッションプーラーの最大接続数に達した場合は、一部の接続を閉じるか、少し時間をおいて再試行してください。トランザクションプーラー（ポート6543）の使用を検討してください。
 - **RLS(Row Level Security)警告**: Supabaseのセキュリティ設定で必要に応じてRLSを有効にしてください。
+- **Prisma接続エラー**: Prismaを使用する場合は特に`?pgbouncer=true`などのパラメータを使わないようにし、PRISMA_CLIENT_NO_PREPARED_STATEMENTSをtrueに設定してください。
 
 ## チェックリスト
 - [x] 要件定義の完了

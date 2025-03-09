@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ユーザーモデル
@@ -25,8 +26,136 @@ model User {
   expirationDate DateTime?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  lps           LP[]
   lpProjects    LpProject[]
   testSettings  TestSetting[]
+  assistantConfigs   AssistantConfig[]
+  assistantSessions  AssistantSession[]
+}
+
+// LPモデル（5dayChallengeLP互換）
+model LP {
+  id            String           @id @default(cuid())
+  userId        String
+  name          String
+  description   String?
+  publishedUrl  String?          // 公開時のURL
+  slug          String?          @unique // 公開時のスラッグ（短縮URL用）
+  status        String           @default("draft") // draft, published, testing, archived
+  designSystem  Json?            // デザインシステム設定をJSON形式で保存
+  designStyle   String?          // デザインスタイル（modern, corporate, vibrant, minimal等）
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  components    LPComponent[]
+  sessions      LPSession[]
+  events        LPEvent[]
+  stats         LPStats?
+}
+
+// LPコンポーネントモデル（5dayChallengeLP互換）
+model LPComponent {
+  id            String           @id @default(cuid())
+  lpId          String
+  componentType String           // hero, benefits, cta等
+  name          String?
+  position      Int
+  html          String?          @db.Text // バリアントAのHTML
+  css           String?          @db.Text // 共通CSS（あれば）
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  lp            LP               @relation(fields: [lpId], references: [id], onDelete: Cascade)
+  variants      ComponentVariant[]
+  events        ComponentEvent[]
+  stats         ComponentStats[]
+}
+
+// コンポーネントバリアントモデル（5dayChallengeLP互換）
+model ComponentVariant {
+  id            String           @id @default(cuid())
+  componentId   String
+  variant       String           // 'a' or 'b'
+  html          String?          @db.Text
+  css           String?          @db.Text
+  metadata      Json?            // 追加情報
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  component     LPComponent      @relation(fields: [componentId], references: [id], onDelete: Cascade)
+}
+
+// LPセッションモデル
+model LPSession {
+  id                  String           @id @default(cuid())
+  lpId                String
+  startedAt           DateTime         @default(now())
+  userAgent           String?
+  referrer            String?
+  ipAddress           String?
+  utmSource           String?
+  utmCampaign         String?
+  deviceType          String?          // mobile, tablet, desktop
+  browserType         String?
+  hasConverted        Boolean          @default(false)
+  conversionType      String?
+  conversionTimestamp DateTime?
+  duration            Int?             // 滞在時間（秒）
+  lp                  LP               @relation(fields: [lpId], references: [id], onDelete: Cascade)
+  events              LPEvent[]
+  componentEvents     ComponentEvent[]
+}
+
+// LPイベントモデル
+model LPEvent {
+  id            String           @id @default(cuid())
+  sessionId     String
+  lpId          String
+  eventType     String           // pageview, click, scroll, conversion, exit等
+  timestamp     DateTime         @default(now())
+  path          String?          // イベント発生時のパス
+  search        String?          // クエリパラメータ
+  data          Json?            // イベント固有データ
+  session       LPSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  lp            LP               @relation(fields: [lpId], references: [id], onDelete: Cascade)
+}
+
+// コンポーネントイベントモデル
+model ComponentEvent {
+  id            String           @id @default(cuid())
+  sessionId     String
+  lpId          String
+  componentId   String
+  variant       String           // 'a' or 'b'
+  eventType     String           // view, click, scroll, etc.
+  timestamp     DateTime         @default(now())
+  data          Json?            // 追加データ
+  session       LPSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  component     LPComponent      @relation(fields: [componentId], references: [id], onDelete: Cascade)
+}
+
+// LPコンポーネント統計モデル
+model ComponentStats {
+  id            String           @id @default(cuid())
+  componentId   String
+  lpId          String
+  variant       String           // 'a' or 'b'
+  views         Int              @default(0)
+  clicks        Int              @default(0)
+  conversions   Int              @default(0)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  component     LPComponent      @relation(fields: [componentId], references: [id], onDelete: Cascade)
+}
+
+// LP統計モデル
+model LPStats {
+  id            String           @id @default(cuid())
+  lpId          String           @unique
+  views         Int              @default(0)
+  conversions   Int              @default(0)
+  engagements   Int              @default(0) // スクロール深度や他のエンゲージメント指標
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  lp            LP               @relation(fields: [lpId], references: [id], onDelete: Cascade)
 }
 
 // LPプロジェクトモデル
@@ -55,12 +184,12 @@ model LpComponent {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   project       LpProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  variants      ComponentVariant[]
+  variants      LpComponentVariant[]
   testResults   TestResult[]
 }
 
-// コンポーネントバリアントモデル
-model ComponentVariant {
+// LPコンポーネントバリアントモデル
+model LpComponentVariant {
   id            String         @id @default(cuid())
   componentId   String
   variantType   String         // 'a' or 'b'
@@ -116,7 +245,7 @@ model SessionEvent {
   timestamp     DateTime          @default(now())
   timeSpent     Int?              // milliseconds
   testSession   TestSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  variant       ComponentVariant? @relation(fields: [variantId], references: [id])
+  variant       LpComponentVariant? @relation(fields: [variantId], references: [id])
 }
 
 // テスト結果モデル
@@ -165,4 +294,56 @@ model PatternAnalysis {
   confidenceScore  Float?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
+}
+
+// アシスタントモデル
+model Assistant {
+  id               String         @id @default(cuid())
+  name             String
+  title            String         // 表示用タイトル
+  description      String?
+  systemPrompt     String         // アシスタントの基本指示（システムメッセージ）
+  initialMessage   String         // 初期メッセージ
+  referenceDocuments String?      // 参考資料（JSON形式で保存）
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  configs          AssistantConfig[]
+  sessions         AssistantSession[]
+}
+
+// アシスタント設定モデル
+model AssistantConfig {
+  id               String         @id @default(cuid())
+  assistantId      String
+  userId           String?        // ユーザー固有の設定の場合に使用
+  parameters       Json           // 設定パラメータ
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  assistant        Assistant      @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+  user             User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+// アシスタントセッションモデル
+model AssistantSession {
+  id               String         @id @default(cuid())
+  assistantId      String
+  userId           String
+  context          Json?          // セッションコンテキスト
+  startTime        DateTime       @default(now())
+  endTime          DateTime?
+  status           String         @default("active") // active, completed, error
+  assistant        Assistant      @relation(fields: [assistantId], references: [id], onDelete: Cascade)
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages         AssistantMessage[]
+}
+
+// アシスタントメッセージモデル
+model AssistantMessage {
+  id               String         @id @default(cuid())
+  sessionId        String
+  role             String         // user, assistant, system
+  content          String         @db.Text
+  timestamp        DateTime       @default(now())
+  metadata         Json?          // 追加情報（使用モデル、トークン数など）
+  session          AssistantSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 }

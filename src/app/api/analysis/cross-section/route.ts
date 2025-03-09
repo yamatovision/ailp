@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+// import { getServerSession } from 'next-auth';
+import { createServerClient } from '@/lib/supabase';
 import { prisma } from '@/lib/db/prisma';
 import { authOptions } from '@/lib/auth/auth-options';
 import { analyzeCrossSections } from '@/lib/analysis/statistical-analysis';
@@ -9,8 +10,10 @@ import { analyzeCrossSections } from '@/lib/analysis/statistical-analysis';
  */
 export async function GET(request: Request) {
   try {
-    // セッション確認
-    const session = await getServerSession(authOptions);
+    // セッション確認（Supabase Auth）
+    const { cookies } = request;
+    const supabase = createServerClient(cookies);
+    const { data: { session } } = await supabase.auth.getSession();
     
     if (!session?.user?.email) {
       return NextResponse.json(

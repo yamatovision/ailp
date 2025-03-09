@@ -43,7 +43,6 @@ export interface Section {
   title: string;
   content: string;
   position: number;
-  isTestable: boolean;  // A/Bテスト対象セクションか
   html?: string;  // 生成されたHTML (オプション)
 }
 

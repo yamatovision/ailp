@@ -14,7 +14,7 @@ function LoadingComponent() {
 
 export default function WritingPage() {
   return (
-    <main className="p-0 -m-4 md:-m-6 overflow-hidden h-screen">
+    <main className="p-0 -m-4 md:-m-6 overflow-hidden h-[calc(100vh-64px)]">
       <Suspense fallback={<LoadingComponent />}>
         <WritingAssistant />
       </Suspense>

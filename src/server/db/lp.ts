@@ -149,6 +149,8 @@ export async function updateLPInDB(id: string, data: {
   description?: string;
   status?: string;
   thumbnail?: string;
+  designSystem?: any;
+  designStyle?: string;
 }) {
   try {
     const lp = await prisma.lpProject.update({
@@ -226,7 +228,7 @@ export async function duplicateLPInDB(id: string, userId: string) {
 
         // バリアントのコピー
         for (const variant of component.variants) {
-          await tx.componentVariant.create({
+          await tx.lpComponentVariant.create({
             data: {
               componentId: newComponent.id,
               variantType: variant.variantType,

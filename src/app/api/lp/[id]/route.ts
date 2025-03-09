@@ -59,7 +59,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   try {
     const id = params.id;
-    const { title, description, status, thumbnail } = await req.json();
+    const { title, description, status, thumbnail, designSystem, designStyle } = await req.json();
 
     // 認証セッションを取得
     const session = await getUserSession(req);
@@ -75,13 +75,26 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ error: 'アクセス権限がありません' }, { status: 403 });
     }
 
-    // LPを更新
-    const updatedLP = await updateLPInDB(id, {
+    // 更新データの準備
+    const updateData: any = {
       title,
       description,
       status,
       thumbnail,
-    });
+    };
+
+    // デザインシステム情報が提供されていれば追加
+    if (designSystem) {
+      updateData.designSystem = designSystem;
+    }
+
+    // デザインスタイルが提供されていれば追加
+    if (designStyle) {
+      updateData.designStyle = designStyle;
+    }
+
+    // LPを更新
+    const updatedLP = await updateLPInDB(id, updateData);
 
     return NextResponse.json({ lp: updatedLP });
   } catch (error) {

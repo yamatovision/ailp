@@ -1,17 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Loader2, ArrowRight, LayoutGrid, 
-  AlertTriangle, RefreshCw, FileCode
+  AlertTriangle, RefreshCw, FileCode, Save
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
 
 import { useLPBuilder } from '../LPBuilderContext';
-import { analyzeStructure } from '@/lib/api/lp';
+import { 
+  analyzeStructure, 
+  updateLP,
+  createComponent,
+  updateComponent,
+  deleteComponent,
+  updateComponentPositions,
+  getComponents
+} from '@/lib/api/lp';
 import { Section } from '@/types/structure';
 import DirectoryTree from './DirectoryTree';
 import SectionPreview from './SectionPreview';
@@ -19,9 +27,12 @@ import SectionPreview from './SectionPreview';
 type StructureInterfaceProps = {
   lpId: string;
   onAnalyzeTriggered?: boolean;
+  initialContent?: string;
+  onAnalyzeComplete?: () => void;
 };
 
-export default function StructureInterface({ lpId, onAnalyzeTriggered }: StructureInterfaceProps) {
+// forwardRef を使用して外部からsaveStructureメソッドを呼び出せるようにする
+const StructureInterface = React.forwardRef(({ lpId, onAnalyzeTriggered, initialContent = '', onAnalyzeComplete }: StructureInterfaceProps, ref) => {
   const router = useRouter();
   const { toast } = useToast();
   const { state, setSections, completePhase } = useLPBuilder();
@@ -33,7 +44,68 @@ export default function StructureInterface({ lpId, onAnalyzeTriggered }: Structu
   const [sections, setSectionsState] = useState<Section[]>(state.sections || []);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   
+  // コンポーネントの初期化
+  useEffect(() => {
+    // 初期読み込み完了のタイミングを制御
+    setTimeout(() => {
+      setLoading(false);
+    }, 500);
+  }, []);
+  
+  // 初期コンテンツが渡された場合にLPBuilderContextに反映
+  useEffect(() => {
+    if (initialContent && !state.lpContent) {
+      console.log('StructureInterface: 初期コンテンツをコンテキストに設定', initialContent);
+      // lpContentを直接使用するためのヘルパー関数がないため、外部から直接コンテキストに設定
+      if (typeof window !== 'undefined') {
+        try {
+          const savedState = localStorage.getItem(`lp_builder_${lpId}`);
+          if (savedState) {
+            const parsedState = JSON.parse(savedState);
+            parsedState.lpContent = initialContent;
+            localStorage.setItem(`lp_builder_${lpId}`, JSON.stringify(parsedState));
+            console.log('初期LP内容をlocalStorageに保存しました');
+            
+            // 強制リロード - コンテキストを更新するため
+            window.location.reload();
+          }
+        } catch (e) {
+          console.error('初期コンテンツの設定エラー:', e);
+        }
+      }
+    }
+  }, [initialContent, state.lpContent, lpId]);
+  
+  // ページロード時にデータベースからコンポーネントをロード
+  useEffect(() => {
+    const initializeFromDatabase = async () => {
+      // 初期読み込み中かつセクションが空の場合は、データベースからロード
+      if (!loading && sections.length === 0) {
+        try {
+          console.log('データベースからコンポーネントをロードします...');
+          const loaded = await loadComponentsFromDatabase();
+          
+          if (!loaded) {
+            console.log('データベースにコンポーネントがないか、ロードに失敗しました');
+            // データベースにセクションがない場合は、localStorage/contextが存在するか確認
+            if (state.sections && state.sections.length > 0) {
+              console.log('コンテキストからセクションをロードします:', state.sections.length, '個');
+              setSectionsState(state.sections);
+            } else {
+              console.log('利用可能なセクションデータがありません');
+            }
+          }
+        } catch (error) {
+          console.error('初期化エラー:', error);
+        }
+      }
+    };
+    
+    initializeFromDatabase();
+  }, [loading, lpId]);
+
   // 親コンポーネントからのトリガーを監視
   useEffect(() => {
     if (onAnalyzeTriggered) {
@@ -54,6 +126,87 @@ export default function StructureInterface({ lpId, onAnalyzeTriggered }: Structu
       }
     }
   }, [state.sections, selectedSection]);
+  
+  // ローカルのセクションデータが変更されたらコンテキストを更新
+  useEffect(() => {
+    // 初回レンダリング時は更新しない
+    if (!loading && sections.length > 0) {
+      // 非同期にコンテキストを更新
+      const updateContext = setTimeout(() => {
+        setSections(sections);
+      }, 0);
+      
+      return () => clearTimeout(updateContext);
+    }
+  }, [sections, loading, setSections]);
+  
+  // データベースからコンポーネントデータをロード
+  const loadComponentsFromDatabase = async () => {
+    try {
+      console.log('データベースからコンポーネントをロード中...');
+      
+      // getComponentsでLPに関連付けられたコンポーネントを取得
+      const components = await getComponents(lpId);
+      
+      if (components && components.length > 0) {
+        console.log(`${components.length}個のコンポーネントをデータベースから取得しました`);
+        
+        // コンポーネントデータをSection形式に変換
+        const loadedSections: Section[] = components.map((comp, index) => {
+          // aiPromptまたはaiParametersからセクションデータを復元
+          let title = '', content = '';
+          
+          try {
+            if (comp.aiParameters) {
+              const params = typeof comp.aiParameters === 'string' 
+                ? JSON.parse(comp.aiParameters) 
+                : comp.aiParameters;
+                
+              title = params.title || '';
+              content = params.content || '';
+            } else if (comp.aiPrompt) {
+              const params = JSON.parse(comp.aiPrompt);
+              title = params.title || '';
+              content = params.content || '';
+            }
+          } catch (e) {
+            console.error('コンポーネントパラメータの解析エラー:', e);
+          }
+          
+          return {
+            id: comp.id,
+            type: comp.componentType || 'section',
+            componentName: comp.componentType || 'Section',
+            title: title || `セクション ${index + 1}`,
+            content: content || '',
+            position: comp.position || index
+          };
+        });
+        
+        // ソート
+        loadedSections.sort((a, b) => a.position - b.position);
+        
+        // セクションデータを更新
+        if (loadedSections.length > 0) {
+          setSectionsState(loadedSections);
+          
+          // 最初のセクションを選択
+          setSelectedSection(loadedSections[0].id);
+          setExpandedSection(loadedSections[0].id);
+          
+          console.log('データベースからロードしたセクションデータで更新しました');
+          return true;
+        }
+      } else {
+        console.log('データベースにコンポーネントがありません');
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('コンポーネントのロードエラー:', error);
+      return false;
+    }
+  };
 
   // AIに構造を分析させる
   const handleAnalyze = async () => {
@@ -76,6 +229,13 @@ export default function StructureInterface({ lpId, onAnalyzeTriggered }: Structu
     }, 500);
     
     try {
+      // コンテキストの現在の状態を確認
+      console.log('コンテキスト内のLP情報:', {
+        lpContent: state.lpContent,
+        designStyle: state.designStyle,
+        designDescription: state.designDescription
+      });
+      
       // API呼び出しパラメータの準備
       const data = {
         serviceInfo: state.lpContent || 'ランディングページの内容がありません。',
@@ -124,12 +284,242 @@ export default function StructureInterface({ lpId, onAnalyzeTriggered }: Structu
       setProgress(100);
       setTimeout(() => {
         setIsAnalyzing(false);
+        if (onAnalyzeComplete) {
+          onAnalyzeComplete();
+        }
       }, 500);
     }
   };
 
+  // セクションデータをJSON文字列に変換
+  const serializeSections = () => {
+    try {
+      // セクションデータをJSON形式で保存できるよう文字列に変換
+      return JSON.stringify(sections);
+    } catch (error) {
+      console.error('セクションシリアライズエラー:', error);
+      return '';
+    }
+  };
+  
+  // LPの基本情報のみを保存（SECTIONS_DATA付与なし）
+  const saveLPBasicInfo = async () => {
+    try {
+      // LPの基本情報のみを更新
+      const result = await updateLP(lpId, {
+        title: state.title,
+        // SECTIONS_DATAのみを別途保存するため、ここでは本来のコンテンツのみ
+        description: state.lpContent || ''
+      });
+      
+      return result;
+    } catch (error) {
+      console.error('LP基本情報の保存エラー:', error);
+      throw error;
+    }
+  };
+
+  // セクションデータをLpComponentテーブルに保存（並列処理から逐次処理に変更）
+  const saveComponentsToDatabase = async () => {
+    try {
+      // 進捗表示
+      const startSaving = performance.now();
+      console.log('コンポーネントの保存を開始:', sections.length, '個のセクション');
+      
+      // デバッグ：全セクションの詳細をログ出力
+      console.log('保存予定のセクション詳細:', sections.map(s => ({
+        id: s.id,
+        type: s.type,
+        title: s.title,
+        position: s.position
+      })));
+      
+      // 保存結果の統計
+      let savedComponents = [];
+      let successCount = 0;
+      let failedSections = [];
+      
+      // 各セクションを一つずつ順番に保存（エラーを個別に処理）
+      for (let i = 0; i < sections.length; i++) {
+        const section = sections[i];
+        try {
+          // 保存の前にコンポーネントが有効かチェック
+          if (!section || !section.id) {
+            console.error(`セクション ${i+1} は無効です:`, section);
+            failedSections.push({ index: i, reason: 'Invalid section data' });
+            continue;
+          }
+          
+          // コンポーネントタイプをPrismaモデルに合わせる
+          const componentType = section.type || 'section';
+          
+          // AIプロンプト情報
+          const aiParams = {
+            title: section.title,
+            content: section.content
+          };
+          
+          console.log(`セクション ${i+1}/${sections.length} (${section.title}) の保存開始...`);
+          
+          // 新規コンポーネントを作成（一つずつ保存）
+          const component = await createComponent(lpId, {
+            componentType: componentType,
+            position: section.position || i,
+            aiPrompt: JSON.stringify(aiParams),
+            aiParameters: aiParams
+          });
+          
+          console.log(`セクション ${i+1}/${sections.length} を保存完了:`, component.id);
+          savedComponents.push(component);
+          successCount++;
+        } catch (err) {
+          console.error(`セクション ${i+1} (${section?.title || 'unknown'}) の保存に失敗:`, err);
+          failedSections.push({ index: i, section: section, error: err });
+        }
+      }
+      
+      const endSaving = performance.now();
+      console.log(
+        'すべてのコンポーネント保存完了:', 
+        successCount, '個成功 / ', 
+        failedSections.length, '個失敗, 処理時間:', 
+        Math.round(endSaving - startSaving), 'ms'
+      );
+      
+      // 失敗したセクションがある場合は通知
+      if (failedSections.length > 0) {
+        console.error(`${failedSections.length}個のセクションの保存に失敗しました:`, failedSections);
+        
+        toast({
+          title: `${failedSections.length}個のセクションが保存できませんでした`,
+          description: "一部のセクションの保存に失敗しました。もう一度お試しください。",
+          variant: "warning",
+        });
+      } else if (successCount > 0) {
+        toast({
+          title: "保存完了",
+          description: `${successCount}個のセクションを正常に保存しました`,
+        });
+      }
+      
+      return savedComponents;
+    } catch (error) {
+      console.error('コンポーネント全体の保存処理でエラー:', error);
+      throw error;
+    }
+  };
+  
+  // 既存のコンポーネントを削除
+  const clearExistingComponents = async () => {
+    try {
+      // 既存のコンポーネントを取得
+      const existingComponents = await getComponents(lpId);
+      
+      if (existingComponents.length > 0) {
+        console.log(`${existingComponents.length}個の既存コンポーネントを削除します...`);
+        
+        // 既存コンポーネントを削除
+        await Promise.all(
+          existingComponents.map(comp => deleteComponent(comp.id))
+        );
+        
+        console.log(`${existingComponents.length}個の既存コンポーネントを削除しました`);
+      } else {
+        console.log('削除すべき既存コンポーネントがありません');
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('既存コンポーネント削除エラー:', error);
+      return false;
+    }
+  };
+  
+  // 保存中フラグを追加
+  const [isSaving, setIsSaving] = useState(false);
+
+  // ref経由で外部から呼び出せるようにする
+  React.useImperativeHandle(ref, () => ({
+    saveStructure: async () => saveStructure()
+  }));
+
+  // セクションデータを保存（デバウンスとフラグ付き実装）
+  const saveStructure = async () => {
+    // 既に保存中なら処理をスキップ
+    if (isSaving) {
+      console.log('既に保存処理中のため、新しい保存リクエストはスキップします');
+      return;
+    }
+
+    try {
+      // 保存中フラグを設定
+      setIsSaving(true);
+      
+      // 保存開始
+      console.log('===== 構造データの保存を開始 =====');
+      console.log(`保存するセクション数: ${sections.length}個`);
+      
+      // セクションの概要をログ出力
+      sections.forEach((section, index) => {
+        console.log(`セクション ${index + 1}: ID=${section.id}, タイトル="${section.title}", タイプ=${section.type}`);
+      });
+      
+      // 1. LPの基本情報を保存
+      const lpInfo = await saveLPBasicInfo();
+      console.log('LP基本情報を保存しました:', lpInfo);
+      
+      // 2. 既存のコンポーネントを削除（新規作成のため）
+      await clearExistingComponents();
+      
+      // 3. 新しいセクションをコンポーネントとして保存
+      console.log('新しいセクションをコンポーネントとして保存します...');
+      const savedComponents = await saveComponentsToDatabase();
+      console.log('保存完了したコンポーネント:', savedComponents);
+      
+      // 4. LocalStorageにはSECTIONS_DATAとしてのみ保存する
+      if (typeof window !== 'undefined') {
+        try {
+          // セクションデータのみをHTML形式でコメントとして保存
+          const sectionsJson = JSON.stringify(sections);
+          const sectionsData = `<!-- SECTIONS_DATA: ${sectionsJson} -->`;
+          
+          // LP descriptionフィールドの末尾にSECTIONS_DATAを追加
+          await updateLP(lpId, {
+            description: `${state.lpContent || ''}\n\n${sectionsData}`
+          });
+          
+          console.log('SECTIONS_DATAをLP descriptionの末尾に保存しました');
+        } catch (e) {
+          console.error('SECTIONS_DATA保存エラー:', e);
+        }
+      }
+      
+      console.log(`===== 構造データの保存完了: ${savedComponents?.length || 0}個のセクションを保存 =====`);
+      
+      // 成功通知
+      toast({
+        title: "構造データを保存しました",
+        description: `${savedComponents?.length || 0}個のセクションをデータベースに保存しました`,
+      });
+      
+      return savedComponents;
+    } catch (error) {
+      console.error('構造データ保存エラー:', error);
+      toast({
+        title: "保存エラー",
+        description: "構造データの保存中にエラーが発生しました",
+        variant: "destructive"
+      });
+      
+      // エラー通知も行うが、次ステップに進むなど一部処理は続行させるため、エラーは再スローしない
+    } finally {
+      // 処理完了後にフラグを解除
+      setIsSaving(false);
+    }
+  };
+
   // デザイン生成ページへ進む
-  const handleProceed = () => {
+  const handleProceed = async () => {
     if (sections.length === 0) {
       toast({
         title: "セクションがありません",
@@ -139,11 +529,37 @@ export default function StructureInterface({ lpId, onAnalyzeTriggered }: Structu
       return;
     }
     
+    // 既に保存処理中なら通知だけして進む
+    if (isSaving) {
+      toast({
+        title: "保存処理中",
+        description: "データを保存中です。デザイン生成ページに進みます。",
+      });
+      
+      // 構造フェーズ完了をマーク
+      completePhase('structure');
+      
+      // 保存を待たずに遷移
+      router.push(`/lp/${lpId}/edit/design`);
+      return;
+    }
+    
     // 構造フェーズ完了をマーク
     completePhase('structure');
     
-    // デザイン生成ページへ遷移
-    router.push(`/lp/${lpId}/edit/design`);
+    try {
+      // 保存中フラグを設定
+      setIsSaving(true);
+      
+      // データを保存
+      await saveStructure();
+      
+      // デザイン生成ページへ遷移
+      router.push(`/lp/${lpId}/edit/design`);
+    } finally {
+      // 処理完了後にフラグを解除
+      setIsSaving(false);
+    }
   };
 
   // セクションの編集
@@ -196,8 +612,7 @@ export default function StructureInterface({ lpId, onAnalyzeTriggered }: Structu
       componentName: 'Custom',
       title: '新しいセクション',
       content: 'このセクションの内容を編集してください',
-      position: newPosition,
-      isTestable: false
+      position: newPosition
     };
     
     setSectionsState(prev => {
@@ -289,24 +704,45 @@ export default function StructureInterface({ lpId, onAnalyzeTriggered }: Structu
           />
           
           <div className="mt-6 pt-4 border-t">
-            <Button 
-              onClick={handleAnalyze} 
-              disabled={isAnalyzing}
-              className="w-full"
-              variant="outline"
-            >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  再分析中...
-                </>
-              ) : (
-                <>
-                  <LayoutGrid className="mr-2 h-4 w-4" />
-                  AIで再分析
-                </>
-              )}
-            </Button>
+            <div className="flex flex-col space-y-2">
+              <Button 
+                onClick={handleAnalyze} 
+                disabled={isAnalyzing}
+                className="w-full"
+                variant="outline"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    分析中...
+                  </>
+                ) : (
+                  <>
+                    <LayoutGrid className="mr-2 h-4 w-4" />
+                    AIで構造作成
+                  </>
+                )}
+              </Button>
+              
+              <Button 
+                onClick={saveStructure} 
+                className="w-full"
+                variant="outline"
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    保存中...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    保存
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -318,7 +754,26 @@ export default function StructureInterface({ lpId, onAnalyzeTriggered }: Structu
             onSelectSection={setSelectedSection}
           />
 
-          <div className="mt-6 flex justify-end">
+          <div className="mt-6 flex justify-between">
+            <Button 
+              onClick={saveStructure} 
+              variant="outline"
+              className="px-6"
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  保存中...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  保存
+                </>
+              )}
+            </Button>
+            
             <Button 
               onClick={handleProceed} 
               className="px-10 py-6 text-lg"
@@ -336,11 +791,26 @@ export default function StructureInterface({ lpId, onAnalyzeTriggered }: Structu
           <Button variant="outline" onClick={() => router.push(`/lp/${lpId}/edit/generate`)}>
             戻る
           </Button>
+          <Button variant="outline" onClick={saveStructure} disabled={isSaving}>
+            {isSaving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                保存中...
+              </>
+            ) : (
+              '保存'
+            )}
+          </Button>
           <Button onClick={handleProceed} disabled={sections.length === 0}>
-            次のステップへ進む
+            次へ
           </Button>
         </div>
       </div>
     </div>
   );
-}
+});
+
+// 表示名を設定
+StructureInterface.displayName = "StructureInterface";
+
+export default StructureInterface;
